@@ -1,5 +1,5 @@
-# Backend Dockerfile - Optimized for Railway deployment
-FROM python:3.12-slim as base
+# Backend Dockerfile - Simple Railway-optimized version
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -15,45 +15,32 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
 # Set work directory
 WORKDIR /app
 
-# Production stage
-FROM base as production
-
-# Copy requirements first for better caching
+# Copy requirements and install dependencies
 COPY requirements.txt .
-
-# Install only production dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
-COPY alembic/ ./alembic/
-COPY alembic.ini .
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/uploads
 
-# Change ownership to app user
+# Create a non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/api/v1/health || exit 1
-
-# Expose port (Railway will set this via PORT env var)
+# Expose port (Railway will set PORT env var)
 EXPOSE 8000
 
-# Production command - Railway compatible
+# Start command - Railway compatible
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 
 # Development stage
-FROM base as development
+FROM python:3.12-slim as development
 
 # Install development dependencies
 RUN apt-get update && apt-get install -y \

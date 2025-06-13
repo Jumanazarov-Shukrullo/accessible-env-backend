@@ -90,6 +90,15 @@ app.include_router(criteria_router, prefix="/api/v1")
 app.include_router(statistics_router, prefix="/api/v1")
 app.include_router(rating_router, prefix="/api/v1")
 
+# Health check endpoint for Railway
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "message": "Backend is running"}
+
+@app.get("/")
+async def root():
+    return {"message": "Enterprise FastAPI Application"}
+
 if __name__ == "__main__":
     import uvicorn
 
