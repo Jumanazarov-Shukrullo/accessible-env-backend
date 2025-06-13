@@ -290,16 +290,23 @@ class LocationRouter:
             if a.is_verified:
                 verified_details.extend(assess_service.get_assessment_details(a.assessment_id))
 
-        pdf_bytes = render_pdf(
-            "report.html",
-            {
-                "location": location,
-                "images": images,
-                "assessments": verified_details,
-            },
-        )
-        headers = {"Content-Disposition": f"attachment; filename=location_{location_id}.pdf"}
-        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+        try:
+            pdf_bytes = render_pdf(
+                "report.html",
+                {
+                    "location": location,
+                    "images": images,
+                    "assessments": verified_details,
+                },
+            )
+            headers = {"Content-Disposition": f"attachment; filename=location_{location_id}.pdf"}
+            return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+        except RuntimeError as e:
+            # PDF generation not available
+            raise HTTPException(
+                status_code=503, 
+                detail="PDF generation is temporarily unavailable. Please contact system administrator."
+            )
 
 
 # -------- expose -----------------------------------------------------------
