@@ -18,13 +18,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app/ ./app/
 
-# Create necessary directories
-RUN mkdir -p /app/logs /app/uploads
-
-# Create a non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-USER appuser
 
 # Expose port (Railway will set PORT env var)
 EXPOSE 8000
