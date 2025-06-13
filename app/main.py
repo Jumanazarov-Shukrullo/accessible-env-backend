@@ -33,11 +33,17 @@ app = FastAPI(title="Enterprise FastAPI Application")
 
 # Configure CORS once, using settings.allowed_hosts or localhost fallback
 allowed_origins = settings.allowed_hosts or ["http://localhost:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://accessible-env-backend-production.up.railway.app",
+        "https://access-front.up.railway.app",
+        "https://accessenv.uz",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
