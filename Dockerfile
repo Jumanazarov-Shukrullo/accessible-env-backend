@@ -58,57 +58,28 @@ RUN apt-get update && apt-get install -y \
     libthai0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Set work directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY app/ ./app/
-
-# Create necessary directories
-RUN mkdir -p /app/logs /app/uploads
-
-# Change ownership to app user
-RUN chown -R appuser:appuser /app
-USER appuser
-
-# Expose port (Railway will set PORT env var)
-EXPOSE 8000
-
-# Start command - Railway compatible
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
-
-# Development stage
-FROM python:3.12-slim as development
-
-# Install development dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    vim \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
+# Copy the requirements file
 COPY requirements.txt .
 
-# Install Python dependencies
+# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install additional dev dependencies if file exists
-COPY requirements-dev.txt* ./
-RUN if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
-
-# Copy application code
+# Copy the FastAPI app files to the working directory
 COPY . .
 
+# Clean up apt cache to reduce image size
+RUN apt-get remove --purge -y \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose port
+# Expose the port that FastAPI will run on
 EXPOSE 8000
 
-# Development command with hot reload
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+
+# Command to run the FastAPI app using Uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
