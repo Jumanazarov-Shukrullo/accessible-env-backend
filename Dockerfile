@@ -1,4 +1,4 @@
-# Backend Dockerfile - Railway-optimized with all required dependencies
+# Backend Dockerfile - Railway-optimized with correct Debian package names
 FROM python:3.12-slim
 
 # Set environment variables
@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies including WeasyPrint requirements
+# Install system dependencies for WeasyPrint and other libraries
 RUN apt-get update && apt-get install -y \
     # Build tools
     gcc \
@@ -18,12 +18,12 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     # Network utilities
     curl \
-    # WeasyPrint core dependencies
+    # Core system libraries for WeasyPrint
     libglib2.0-0 \
     libglib2.0-dev \
-    libgobject-2.0-0 \
-    libgobject-2.0-dev \
+    libgirepository-1.0-1 \
     libgirepository1.0-dev \
+    # Cairo (2D graphics library)
     libcairo2 \
     libcairo2-dev \
     libcairo-gobject2 \
@@ -33,11 +33,12 @@ RUN apt-get update && apt-get install -y \
     libpangocairo-1.0-0 \
     libpangoft2-1.0-0 \
     # GDK Pixbuf (image handling)
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libgdk-pixbuf2.0-dev \
-    # Additional dependencies
+    # FFI library
     libffi-dev \
     libffi8 \
+    # MIME types
     shared-mime-info \
     # Font libraries
     fontconfig \
@@ -51,7 +52,7 @@ RUN apt-get update && apt-get install -y \
     # XML processing
     libxml2-dev \
     libxslt1-dev \
-    # Additional runtime libraries
+    # Text processing libraries
     libharfbuzz0b \
     libfribidi0 \
     libthai0 \
