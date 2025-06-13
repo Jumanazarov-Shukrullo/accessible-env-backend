@@ -129,6 +129,17 @@ class AssessmentDetailService:
             
             if not detail:
                 raise HTTPException(status_code=404, detail="Assessment detail not found")
+            
+            # Debug logging
+            logger.info(f"Detail found: {detail.assessment_detail_id}, location_set_assessment_id: {detail.location_set_assessment_id}")
+            logger.info(f"User: {user.user_id}, type: {type(user.user_id)}")
+            
+            # Ensure we have the required values
+            if not detail.location_set_assessment_id:
+                raise HTTPException(status_code=400, detail="Assessment detail is missing location_set_assessment_id")
+            
+            if not user.user_id:
+                raise HTTPException(status_code=400, detail="User ID is missing")
                 
             # Create image metadata that matches the model definition
             # Required fields: location_set_assessment_id, image_url, uploaded_by
@@ -137,7 +148,7 @@ class AssessmentDetailService:
                 location_set_assessment_id=detail.location_set_assessment_id,
                 assessment_detail_id=detail_id,
                 image_url=image_url,
-                description=description,
+                description=description or "Documentation image for assessment detail " + str(detail_id),
                 uploaded_by=str(user.user_id)
             )
             
