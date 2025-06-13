@@ -40,6 +40,7 @@ app.add_middleware(
         "http://localhost:5173",
         "https://accessible-env-backend-production.up.railway.app",
         "https://access-front.up.railway.app",
+        "https://accessible-env-frontend-production.up.railway.app",
         "https://accessenv.uz",
     ],
     allow_credentials=True,
