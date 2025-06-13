@@ -47,9 +47,6 @@ RUN if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requireme
 # Copy application code
 COPY . .
 
-# Change ownership to app user
-RUN chown -R appuser:appuser /app
-USER appuser
 
 # Expose port
 EXPOSE 8000
