@@ -63,16 +63,3 @@ EXPOSE 8000
 
 # Development command with hot reload
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
-
-# Testing stage
-FROM development as testing
-
-# Install test dependencies
-RUN pip install --no-cache-dir pytest pytest-cov pytest-asyncio
-
-# Copy test configuration
-COPY pytest.ini .
-COPY .coveragerc .
-
-# Run tests
-CMD ["pytest", "--cov=app", "--cov-report=html", "--cov-report=term-missing"] 
