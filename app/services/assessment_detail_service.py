@@ -128,34 +128,71 @@ class AssessmentDetailService:
             ).first()
             
             if not detail:
-                raise HTTPException(status_code=404, detail="Assessment detail not found")
+                raise HTTPException(status_code=404, detail=f"Assessment detail with ID {detail_id} not found")
             
-            # Debug logging
-            logger.info(f"Detail found: {detail.assessment_detail_id}, location_set_assessment_id: {detail.location_set_assessment_id}")
-            logger.info(f"User: {user.user_id}, type: {type(user.user_id)}")
+            # Debug logging with more details
+            logger.info(f"Processing image metadata for detail {detail_id}")
+            logger.info(f"Detail found: assessment_detail_id={detail.assessment_detail_id}")
+            logger.info(f"Detail location_set_assessment_id: {detail.location_set_assessment_id}")
+            logger.info(f"User ID: {user.user_id} (type: {type(user.user_id)})")
+            logger.info(f"Image URL: {image_url}")
+            logger.info(f"Description: {description}")
             
-            # Ensure we have the required values
-            if not detail.location_set_assessment_id:
-                raise HTTPException(status_code=400, detail="Assessment detail is missing location_set_assessment_id")
+            # Ensure we have the required values with better error messages
+            if detail.location_set_assessment_id is None:
+                logger.error(f"Assessment detail {detail_id} has NULL location_set_assessment_id")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Assessment detail {detail_id} is missing location_set_assessment_id. This indicates a data integrity issue."
+                )
             
             if not user.user_id:
-                raise HTTPException(status_code=400, detail="User ID is missing")
+                logger.error(f"User object has no user_id: {user}")
+                raise HTTPException(status_code=400, detail="User ID is missing from authentication")
+                
+            # Validate that the location_set_assessment exists
+            assessment = self.uow.db.query(LocationSetAssessment).filter(
+                LocationSetAssessment.assessment_id == detail.location_set_assessment_id
+            ).first()
+            
+            if not assessment:
+                logger.error(f"LocationSetAssessment {detail.location_set_assessment_id} not found")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Parent assessment {detail.location_set_assessment_id} not found"
+                )
+                
+            logger.info(f"Parent assessment found: {assessment.assessment_id}")
                 
             # Create image metadata that matches the model definition
             # Required fields: location_set_assessment_id, image_url, uploaded_by
             # Optional fields: assessment_detail_id, description
-            image = AssessmentImage(
-                location_set_assessment_id=detail.location_set_assessment_id,
-                assessment_detail_id=detail_id,
-                image_url=image_url,
-                description=description or "Documentation image for assessment detail " + str(detail_id),
-                uploaded_by=str(user.user_id)
-            )
-            
-            self.uow.db.add(image)
-            self.uow.commit()
-            self.uow.db.refresh(image)
-            return image
+            try:
+                image = AssessmentImage(
+                    location_set_assessment_id=detail.location_set_assessment_id,
+                    assessment_detail_id=detail_id,
+                    image_url=image_url,
+                    description=description or f"Documentation image for assessment detail {detail_id}",
+                    uploaded_by=str(user.user_id)
+                )
+                
+                logger.info(f"Created AssessmentImage object: location_set_assessment_id={image.location_set_assessment_id}, uploaded_by={image.uploaded_by}")
+                
+                self.uow.db.add(image)
+                self.uow.commit()
+                self.uow.db.refresh(image)
+                
+                logger.info(f"Successfully saved image metadata with ID {image.image_id}")
+                return image
+                
+            except Exception as e:
+                logger.error(f"Failed to create/save AssessmentImage: {str(e)}")
+                logger.error(f"Error type: {type(e)}")
+                self.uow.rollback()
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Failed to save image metadata: {str(e)}"
+                )
 
     # -------------- verification -------------------------------------
     def verify_header(self, payload: VerificationSchema.Create, verifier: User) -> LocationSetAssessment:

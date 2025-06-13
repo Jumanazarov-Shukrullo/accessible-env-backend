@@ -52,7 +52,7 @@ class ImageSchema:
 
     class Out(Base):
         image_id: int
-        created_at: dt.datetime
+        uploaded_at: dt.datetime
 
         model_config = ConfigDict(from_attributes=True)
 
