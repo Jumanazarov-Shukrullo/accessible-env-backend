@@ -44,6 +44,7 @@ class LocationRouter:
         self.router.get("/recently-rated", response_model=List[LocationResponse])(self._get_recently_rated_locations)
         
         self.router.get("/{location_id}", response_model=LocationResponse)(self._get_location)
+        self.router.get("/{location_id}/images")(self._get_location_images)
 
         self.router.put(
             "/{location_id}",
@@ -101,6 +102,18 @@ class LocationRouter:
     ):
         logger.info(f"Getting location {location_id}")
         return LocationService(uow).get_location_detail(str(location_id))
+
+    async def _get_location_images(
+        self,
+        location_id: UUID,
+        uow: UnitOfWork = Depends(get_uow),
+        current_user: User = Depends(auth_manager.get_current_user),
+    ):
+        logger.info(f"Getting images for location {location_id}")
+        location = LocationService(uow).get_location_detail(str(location_id))
+        if not location:
+            raise HTTPException(status_code=404, detail="Location not found")
+        return location.images or []
 
     async def _update_location(
         self,
