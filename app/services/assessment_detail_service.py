@@ -131,11 +131,14 @@ class AssessmentDetailService:
                 raise HTTPException(status_code=404, detail="Assessment detail not found")
                 
             # Create image metadata that matches the model definition
-            # (assessment_detail_id, image_url, description, created_at)
+            # Required fields: location_set_assessment_id, image_url, uploaded_by
+            # Optional fields: assessment_detail_id, description
             image = AssessmentImage(
+                location_set_assessment_id=detail.location_set_assessment_id,
                 assessment_detail_id=detail_id,
                 image_url=image_url,
-                description=description
+                description=description,
+                uploaded_by=str(user.user_id)
             )
             
             self.uow.db.add(image)
