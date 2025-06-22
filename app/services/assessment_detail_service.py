@@ -31,6 +31,59 @@ class AssessmentDetailService:
         self._minio = MinioClient()
         self._mq = RabbitMQPublisherWrapper()
 
+    def _recalculate_assessment_total(self, assessment_id: int) -> float:
+        """Recalculate and update the overall score for an assessment"""
+        from app.models.assessment_model import AccessibilityCriteria
+        
+        # Get existing assessment details
+        existing_details = (
+            self.uow.db.query(LocationAssessment)
+            .filter(
+                LocationAssessment.location_set_assessment_id == assessment_id
+            )
+            .all()
+        )
+
+        if not existing_details:
+            # If no details exist, set score to 0
+            assessment = (
+                self.uow.db.query(LocationSetAssessment)
+                .filter(LocationSetAssessment.assessment_id == assessment_id)
+                .first()
+            )
+            if assessment:
+                assessment.overall_score = 0.0
+            return 0.0
+
+        # Calculate overall score based on included criteria
+        total_score = sum(detail.score for detail in existing_details)
+        total_possible = 0
+
+        for detail in existing_details:
+            criterion = self.uow.db.get(
+                AccessibilityCriteria, detail.criterion_id
+            )
+            if criterion:
+                total_possible += criterion.max_score
+
+        if total_possible == 0:
+            total_possible = 1  # Avoid division by zero
+
+        # Calculate score (0-10 scale)
+        overall_score = (total_score / total_possible) * 10
+
+        # Update assessment with calculated score
+        assessment = (
+            self.uow.db.query(LocationSetAssessment)
+            .filter(LocationSetAssessment.assessment_id == assessment_id)
+            .first()
+        )
+        if assessment:
+            assessment.overall_score = overall_score
+            logger.info(f"Updated overall score for assessment {assessment_id}: {overall_score:.2f}")
+        
+        return overall_score
+
     # -------------- details ------------------------------------------
     def add_detail(
         self, payload: DetailSchema.Create, assessor: User
@@ -93,6 +146,11 @@ class AssessmentDetailService:
             # Apply remaining updates
             for field, value in update_data.items():
                 setattr(detail, field, value)
+
+            # **FIX: Recalculate overall score if score was updated**
+            if "score" in update_data:
+                logger.info(f"Score updated for detail {detail_id}, recalculating overall score")
+                self._recalculate_assessment_total(detail.location_set_assessment_id)
 
             self.uow.commit()
             self.uow.db.refresh(detail)
@@ -248,7 +306,7 @@ class AssessmentDetailService:
                         image.image_id}")
                 return image
 
-            except Exception:
+            except Exception as e:
                 logger.error(
                     f"Failed to create/save AssessmentImage: {str(e)}"
                 )
@@ -405,7 +463,7 @@ class AssessmentDetailService:
                 logger.info(
                     f"Skipping storage deletion for image: {image.image_url}"
                 )
-            except Exception:
+            except Exception as e:
                 logger.warning(f"Failed to delete image from storage: {e}")
                 # Continue with database deletion even if storage deletion
                 # fails
@@ -491,7 +549,7 @@ class AssessmentDetailService:
                     "image_url": object_key,
                 }
 
-            except Exception:
+            except Exception as e:
                 logger.error(f"Failed to upload image: {str(e)}")
                 raise HTTPException(
                     status_code=500, detail=f"Failed to upload image: {str(e)}"
