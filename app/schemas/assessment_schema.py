@@ -1,8 +1,8 @@
-import datetime as dt
-from uuid import UUID
-from typing import Dict, List, Optional, Any
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
 
 
 class AssessmentSchema:
@@ -14,16 +14,27 @@ class AssessmentSchema:
 
     class Out(BaseModel):
         assessment_id: int
-        location_id: str  # Will convert UUID to string automatically during validation
+        location_id: (
+            str  # Will convert UUID to string automatically during validation
+        )
         set_id: int
         status: str
         overall_score: Optional[float]
-        assessor_id: str  # Will convert UUID to string automatically during validation
+        assessor_id: (
+            str  # Will convert UUID to string automatically during validation
+        )
         notes: Optional[str]
+        rejection_reason: Optional[str] = None
         assessed_at: datetime
+        updated_at: Optional[datetime] = None
         submitted_at: Optional[datetime] = None
         verified_at: Optional[datetime] = None
         verifier_id: Optional[str] = None
+        # Location information
+        location_name: Optional[str] = None
+        location_address: Optional[str] = None
+        # Assessment set information
+        assessment_set_name: Optional[str] = None
 
         model_config = ConfigDict(from_attributes=True)
 
@@ -33,9 +44,13 @@ class AssessmentSchema:
             if isinstance(obj, dict):
                 obj_copy = obj.copy()
                 # Convert UUIDs to strings
-                if "location_id" in obj_copy and isinstance(obj_copy["location_id"], UUID):
+                if "location_id" in obj_copy and isinstance(
+                    obj_copy["location_id"], UUID
+                ):
                     obj_copy["location_id"] = str(obj_copy["location_id"])
-                if "assessor_id" in obj_copy and isinstance(obj_copy["assessor_id"], UUID):
+                if "assessor_id" in obj_copy and isinstance(
+                    obj_copy["assessor_id"], UUID
+                ):
                     obj_copy["assessor_id"] = str(obj_copy["assessor_id"])
                 if (
                     "verifier_id" in obj_copy
@@ -128,8 +143,13 @@ class LocationSetAssessmentBase(BaseModel):
     verified: Optional[bool] = None
     verified_at: Optional[datetime] = None
     verified_by: Optional[UUID] = None
-    location_info: Optional[AssessmentLocationInfo] = None # Added field for location details
-    details: Optional[List[Any]] = None  # Will be populated with LocationAssessmentResponse objects
+    rejection_reason: Optional[str] = None
+    location_info: Optional[AssessmentLocationInfo] = (
+        None  # Added field for location details
+    )
+    details: Optional[List[Any]] = (
+        None  # Will be populated with LocationAssessmentResponse objects
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -137,7 +157,9 @@ class LocationSetAssessmentBase(BaseModel):
 class LocationSetAssessmentCreate(LocationSetAssessmentBase):
     set_id: int
     notes: Optional[str] = None
-    criterion_ids: Optional[List[int]] = None  # Optional list of specific criteria to include
+    criterion_ids: Optional[List[int]] = (
+        None  # Optional list of specific criteria to include
+    )
 
 
 class LocationSetAssessmentResponse(LocationSetAssessmentBase):
@@ -151,8 +173,13 @@ class LocationSetAssessmentResponse(LocationSetAssessmentBase):
     verified: Optional[bool] = None
     verified_at: Optional[datetime] = None
     verified_by: Optional[UUID] = None
-    location_info: Optional[AssessmentLocationInfo] = None # Added field for location details
-    details: Optional[List[Any]] = None  # Will be populated with LocationAssessmentResponse objects
+    rejection_reason: Optional[str] = None
+    location_info: Optional[AssessmentLocationInfo] = (
+        None  # Added field for location details
+    )
+    details: Optional[List[Any]] = (
+        None  # Will be populated with LocationAssessmentResponse objects
+    )
     submitted_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -173,7 +200,9 @@ class LocationAssessmentResponse(LocationAssessmentBase):
     assessment_detail_id: int
     location_set_assessment_id: int
     is_reviewed: bool = False
-    criterion: Optional[AccessibilityCriteriaResponse] = None  # To include criterion details
+    criterion: Optional[AccessibilityCriteriaResponse] = (
+        None  # To include criterion details
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

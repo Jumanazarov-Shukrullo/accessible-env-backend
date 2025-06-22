@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -38,7 +38,7 @@ class CacheSettings(BaseSettings):
 
 class MessagingSettings(BaseSettings):
     kafka_bootstrap_servers: List[str] = Field(default_factory=list)
-    rabbitmq_url: str = Field("ampq://rabbitmq:5672")
+    rabbitmq_url: str = Field("amqp://rabbitmq:5672")
 
     @classmethod
     def _split_servers(cls, v: str) -> List[str]:

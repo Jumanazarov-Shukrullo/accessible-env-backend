@@ -1,6 +1,5 @@
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy.exc import ProgrammingError
 
 from app.domain.unit_of_work import UnitOfWork
@@ -16,7 +15,9 @@ class SocialService:
         self.uow = uow
 
     # ---------------- Comments ---------------------------------------
-    def add_comment(self, payload: CommentSchema.Create, user: User) -> Comment:
+    def add_comment(
+        self, payload: CommentSchema.Create, user: User
+    ) -> Comment:
         with self.uow:
             com = Comment(**payload.dict(), user_id=str(user.user_id))
             self.uow.comments.add(com)
@@ -33,14 +34,20 @@ class SocialService:
             return []
 
     # ---------------- Favourites -------------------------------------
-    def toggle_favourite(self, payload: FavouriteSchema.Toggle, user: User) -> bool:
+    def toggle_favourite(
+        self, payload: FavouriteSchema.Toggle, user: User
+    ) -> bool:
         with self.uow:
-            fav = self.uow.favourites.get_user_fav(user.user_id, payload.location_id)
+            fav = self.uow.favourites.get_user_fav(
+                user.user_id, payload.location_id
+            )
             if fav:
                 self.uow.favourites.delete(fav)
                 self.uow.commit()
                 return False
-            new_fav = Favourite(user_id=str(user.user_id), location_id=str(payload.location_id))
+            new_fav = Favourite(
+                user_id=str(user.user_id), location_id=str(payload.location_id)
+            )
             self.uow.favourites.add(new_fav)
             self.uow.commit()
             return True

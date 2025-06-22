@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.dependencies import get_uow
 from app.core.auth import auth_manager
@@ -10,6 +10,7 @@ from app.models.user_model import User
 from app.schemas.statistic_schema import StatisticSchema
 from app.services.statistic_service import RawStatisticService
 from app.utils.logger import get_logger
+
 
 logger = get_logger("statistic_router")
 
@@ -20,8 +21,12 @@ class StatisticRouter:
         self._register()
 
     def _register(self):
-        self.router.post("/", response_model=StatisticSchema.Out, status_code=201)(self._create)
-        self.router.get("/location/{loc_id}", response_model=list[StatisticSchema.Out])(self._list_for_location)
+        self.router.post(
+            "/", response_model=StatisticSchema.Out, status_code=201
+        )(self._create)
+        self.router.get(
+            "/location/{loc_id}", response_model=list[StatisticSchema.Out]
+        )(self._list_for_location)
 
     # ------------------------------------------------------------------
     async def _create(
@@ -42,7 +47,9 @@ class StatisticRouter:
         uow: UnitOfWork = Depends(get_uow),
     ):
         logger.info("Listing statistics for location")
-        return RawStatisticService(uow).list_for_location(loc_id, metric, from_, to)
+        return RawStatisticService(uow).list_for_location(
+            loc_id, metric, from_, to
+        )
 
 
 statistic_router = StatisticRouter().router

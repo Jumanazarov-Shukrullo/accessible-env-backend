@@ -1,8 +1,10 @@
 import json
 import logging
+
 import pika
 
 from app.core.config import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,9 @@ class RabbitMQPublisherWrapper:
             self._conn = pika.BlockingConnection(params)
             self._chan = self._conn.channel()
         except Exception as e:
-            logger.warning(f"RabbitMQ unavailable ({e!r}), continuing without messaging")
+            logger.warning(
+                f"RabbitMQ unavailable ({e!r}), continuing without messaging"
+            )
             self._conn = None
             self._chan = None
 
@@ -26,10 +30,12 @@ class RabbitMQPublisherWrapper:
                 exchange="",
                 routing_key=queue_name,
                 body=json.dumps(message),
-                properties=pika.BasicProperties(content_type="application/json"),
+                properties=pika.BasicProperties(
+                    content_type="application/json"
+                ),
             )
         except Exception as e:
-            logger.error(f"Failed to publish to {queue_name}: {e}")
+            logger.error(f"RabbitMQ connection error: {e}")
 
 
 class RabbitMQWorker:
@@ -50,6 +56,7 @@ class RabbitMQWorker:
                 fn(json.loads(body))
                 ch.basic_ack(method.delivery_tag)
             except Exception as e:
+                logger.error(f"RabbitMQ worker error: {e}")
                 ch.basic_nack(method.delivery_tag, requeue=False)
 
         return inner

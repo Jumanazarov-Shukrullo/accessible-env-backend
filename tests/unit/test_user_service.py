@@ -1,9 +1,11 @@
 # tests/unit/test_user_service.py
 import unittest
 from unittest.mock import MagicMock
+
 from fastapi import HTTPException
-from app.services.user_service import UserService
+
 from app.models.user_model import User
+from app.services.user_service import UserService
 
 
 class TestUserService(unittest.TestCase):
@@ -15,7 +17,8 @@ class TestUserService(unittest.TestCase):
         self.service.repo = self.mock_repo
 
     def test_register_user_success(self):
-        # mock_repo.get_by_username and get_by_email both return None => user is new
+        # mock_repo.get_by_username and get_by_email both return None => user
+        # is new
         self.mock_repo.get_by_username.return_value = None
         self.mock_repo.get_by_email.return_value = None
 
@@ -38,7 +41,12 @@ class TestUserService(unittest.TestCase):
         existing_user = User(username="existing")
         self.mock_repo.get_by_username.return_value = existing_user
 
-        user_in = {"username": "existing", "full_name": "Already", "email": "already@example.com", "password": "pass"}
+        user_in = {
+            "username": "existing",
+            "full_name": "Already",
+            "email": "already@example.com",
+            "password": "pass",
+        }
         with self.assertRaises(HTTPException) as cm:
             self.service.register_user(user_in)
         self.assertEqual(cm.exception.status_code, 400)

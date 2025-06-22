@@ -1,9 +1,11 @@
 import json
 import logging
 
-from kafka import KafkaProducer, KafkaConsumer, errors as kafka_errors
+from kafka import KafkaConsumer, KafkaProducer
+from kafka import errors as kafka_errors
 
 from app.core.config import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,9 @@ class KafkaProducerWrapper:
         try:
             self._producer = KafkaProducer(*args, **kwargs)
         except kafka_errors.NoBrokersAvailable:
-            logger.warning("Kafka brokers unreachable—continuing without events")
+            logger.warning(
+                "Kafka brokers unreachable—continuing without events"
+            )
             self._producer = None
 
     def send(self, topic: str, value: dict):

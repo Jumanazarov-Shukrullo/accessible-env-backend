@@ -11,14 +11,25 @@ from app.db.base import Base
 class Role(Base):
     __tablename__ = "roles"
 
-    role_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    role_name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    role_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    role_name: Mapped[str] = mapped_column(
+        String(50), unique=True, nullable=False, index=True
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     level: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
-    is_system_role: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    is_system_role: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
     # Relationships

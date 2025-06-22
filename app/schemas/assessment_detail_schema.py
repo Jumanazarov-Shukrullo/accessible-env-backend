@@ -1,8 +1,8 @@
 import datetime as dt
-from typing import List, Optional, ForwardRef
+from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DetailSchema:
@@ -88,7 +88,7 @@ class CommentSchema:
         comment: str
         created_at: dt.datetime
         is_edited: Optional[bool] = False
-        
+
         model_config = ConfigDict(from_attributes=True)
 
 

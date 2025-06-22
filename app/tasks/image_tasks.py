@@ -1,5 +1,4 @@
 from app.utils.cache import cache
-from app.utils.external_storage import MinioClient
 from app.utils.rabbitmq_client import RabbitMQWorker
 
 

@@ -1,9 +1,11 @@
 import unittest
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.db.base import Base
-from app.models.user_model import User
 from app.domain.repositories.user_repository import UserRepository
+
 
 DATABASE_URL = "sqlite:///:memory:"
 
@@ -14,7 +16,12 @@ class TestUserRepository(unittest.TestCase):
         # Create a temporary in-memory DB for all tests in this class
         cls.engine = create_engine(DATABASE_URL, future=True)
         Base.metadata.create_all(bind=cls.engine)
-        cls.SessionLocal = sessionmaker(bind=cls.engine, expire_on_commit=False, autoflush=False, future=True)
+        cls.SessionLocal = sessionmaker(
+            bind=cls.engine,
+            expire_on_commit=False,
+            autoflush=False,
+            future=True,
+        )
 
     @classmethod
     def tearDownClass(cls):

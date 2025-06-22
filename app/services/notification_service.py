@@ -1,9 +1,9 @@
 from uuid import UUID
 
 from app.domain.unit_of_work import UnitOfWork
-from app.models.notification_model import Notification, NotificationStatus
+from app.models.notification_model import Notification
 from app.models.user_model import User
-from app.schemas.notification_schema import NotificationCreate, NotificationResponse
+from app.schemas.notification_schema import NotificationCreate
 
 
 class NotificationService:
@@ -12,7 +12,9 @@ class NotificationService:
 
     def send(self, payload: NotificationCreate) -> Notification:
         with self.uow:
-            notif = self.uow.notifications.add(Notification(**payload.dict(), status_id=1))  # "new" status (assumed)
+            notif = self.uow.notifications.add(
+                Notification(**payload.dict(), status_id=1)
+            )  # "new" status (assumed)
             self.uow.commit()
             # background task (email, push) could be queued here
             return notif

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.domain.repositories.base_sqlalchemy import SQLAlchemyRepository
@@ -12,15 +12,19 @@ class RatingRepository(SQLAlchemyRepository[LocationRating, int]):
     def __init__(self, db: Session):
         super().__init__(LocationRating, db)
 
-    def get_user_rating_for_location(self, user_id: UUID, location_id: UUID) -> Optional[LocationRating]:
+    def get_user_rating_for_location(
+        self, user_id: UUID, location_id: UUID
+    ) -> Optional[LocationRating]:
         """Get a user's rating for a specific location."""
         stmt = select(LocationRating).where(
             LocationRating.user_id == str(user_id),
-            LocationRating.location_id == str(location_id)
+            LocationRating.location_id == str(location_id),
         )
         return self.db.scalar(stmt)
 
-    def get_ratings_for_location(self, location_id: UUID, limit: int = 50) -> List[LocationRating]:
+    def get_ratings_for_location(
+        self, location_id: UUID, limit: int = 50
+    ) -> List[LocationRating]:
         """Get all ratings for a location, ordered by most recent."""
         stmt = (
             select(LocationRating)
@@ -45,7 +49,9 @@ class RatingRepository(SQLAlchemyRepository[LocationRating, int]):
         )
         return self.db.scalar(stmt) or 0
 
-    def get_ratings_by_user(self, user_id: UUID, limit: int = 50) -> List[LocationRating]:
+    def get_ratings_by_user(
+        self, user_id: UUID, limit: int = 50
+    ) -> List[LocationRating]:
         """Get all ratings made by a user."""
         stmt = (
             select(LocationRating)

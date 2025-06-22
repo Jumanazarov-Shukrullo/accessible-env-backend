@@ -1,8 +1,5 @@
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.models.user_model import User
-
 
 class AuditTasks:
     @staticmethod

@@ -1,6 +1,7 @@
+import re
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
-import re
 
 from app.domain.unit_of_work import UnitOfWork
 from app.models.city_model import City
@@ -14,9 +15,15 @@ def handle_integrity_error(error, entity_name: str, unique_fields: dict):
     msg = str(error.orig)
     for field, label in unique_fields.items():
         if field in msg:
-            raise HTTPException(status_code=400, detail=f"{entity_name} with this {label} already exists.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"{entity_name} with this {label} already exists.",
+            )
     # fallback
-    raise HTTPException(status_code=400, detail=f"{entity_name} already exists or unique constraint failed.")
+    raise HTTPException(
+        status_code=400,
+        detail=f"{entity_name} already exists or unique constraint failed.",
+    )
 
 
 def normalize_name(name: str) -> str:
@@ -40,27 +47,40 @@ class GeoService:
                 cache.invalidate("regions")
             except IntegrityError as e:
                 self.uow.rollback()
-                handle_integrity_error(e, "Region", {"region_code": "code", "region_name": "name"})
+                handle_integrity_error(
+                    e, "Region", {"region_code": "code", "region_name": "name"}
+                )
             return region
 
-    @cache.cacheable(lambda self, limit=10, offset=0: f"regions:list:{limit}:{offset}", ttl=3600)  # Cache for 1 hour
+    @cache.cacheable(
+        lambda self, limit=10, offset=0: f"regions:list:{limit}:{offset}",
+        ttl=3600,
+    )  # Cache for 1 hour
     def get_regions(self, limit: int = 10, offset: int = 0):
         """Get paginated regions."""
         items, total = self.uow.regions.get_paginated(limit, offset)
-        
+
         # Convert SQLAlchemy models to dictionaries for better caching
         serialized_items = []
         for region in items:
-            serialized_items.append({
-                "region_id": region.region_id,
-                "region_name": region.region_name,
-                "region_code": region.region_code,
-                "description": region.description,
-                "area": float(region.area) if region.area is not None else None,
-                "population": region.population,
-                "created_at": region.created_at.isoformat() if region.created_at else None,
-            })
-        
+            serialized_items.append(
+                {
+                    "region_id": region.region_id,
+                    "region_name": region.region_name,
+                    "region_code": region.region_code,
+                    "description": region.description,
+                    "area": (
+                        float(region.area) if region.area is not None else None
+                    ),
+                    "population": region.population,
+                    "created_at": (
+                        region.created_at.isoformat()
+                        if region.created_at
+                        else None
+                    ),
+                }
+            )
+
         return {"items": serialized_items, "total": total}
 
     @cache.cacheable(lambda self, region_id: f"regions:{region_id}", ttl=3600)
@@ -69,7 +89,7 @@ class GeoService:
         region = self.uow.regions.get(region_id)
         if not region:
             raise HTTPException(404, "Region not found")
-            
+
         # Convert to dictionary for better caching
         return {
             "region_id": region.region_id,
@@ -78,10 +98,14 @@ class GeoService:
             "description": region.description,
             "area": float(region.area) if region.area is not None else None,
             "population": region.population,
-            "created_at": region.created_at.isoformat() if region.created_at else None,
+            "created_at": (
+                region.created_at.isoformat() if region.created_at else None
+            ),
         }
 
-    def update_region(self, region_id: int, payload: RegionSchema.Create) -> Region:
+    def update_region(
+        self, region_id: int, payload: RegionSchema.Create
+    ) -> Region:
         with self.uow:
             region = self.uow.regions.get(region_id)
             if not region:
@@ -97,7 +121,9 @@ class GeoService:
                 cache.invalidate("regions:list")
             except IntegrityError as e:
                 self.uow.rollback()
-                handle_integrity_error(e, "Region", {"region_code": "code", "region_name": "name"})
+                handle_integrity_error(
+                    e, "Region", {"region_code": "code", "region_name": "name"}
+                )
             return region
 
     def delete_region(self, region_id: int):
@@ -127,12 +153,22 @@ class GeoService:
                 cache.invalidate("districts")
             except IntegrityError as e:
                 self.uow.rollback()
-                handle_integrity_error(e, "District", {"district_code": "code", "district_name": "name"})
+                handle_integrity_error(
+                    e,
+                    "District",
+                    {"district_code": "code", "district_name": "name"},
+                )
             return district
 
-    @cache.cacheable(lambda self, region_id=None, limit=10, offset=0: 
-                    f"districts:list:{region_id or 'all'}:{limit}:{offset}", ttl=3600)
-    def get_districts(self, region_id: int = None, limit: int = 10, offset: int = 0):
+    @cache.cacheable(lambda self,
+                     region_id=None,
+                     limit=10,
+                     offset=0: f"districts:list:{region_id or 'all'}:{limit}:{offset}",
+                     ttl=3600,
+                     )
+    def get_districts(
+        self, region_id: int = None, limit: int = 10, offset: int = 0
+    ):
         """Get paginated districts, optionally filtered by region."""
         if region_id:
             # For filtered, return all in region (no pagination for now)
@@ -140,43 +176,63 @@ class GeoService:
             total = len(items)
         else:
             items, total = self.uow.districts.get_paginated(limit, offset)
-            
+
         # Convert SQLAlchemy models to dictionaries for better caching
         serialized_items = []
         for district in items:
-            serialized_items.append({
-                "district_id": district.district_id,
-                "district_name": district.district_name,
-                "district_code": district.district_code,
-                "description": district.description,
-                "area": float(district.area) if district.area is not None else None,
-                "population": district.population,
-                "region_id": district.region_id,
-                "created_at": district.created_at.isoformat() if district.created_at else None,
-            })
-            
+            serialized_items.append(
+                {
+                    "district_id": district.district_id,
+                    "district_name": district.district_name,
+                    "district_code": district.district_code,
+                    "description": district.description,
+                    "area": (
+                        float(district.area)
+                        if district.area is not None
+                        else None
+                    ),
+                    "population": district.population,
+                    "region_id": district.region_id,
+                    "created_at": (
+                        district.created_at.isoformat()
+                        if district.created_at
+                        else None
+                    ),
+                }
+            )
+
         return {"items": serialized_items, "total": total}
 
-    @cache.cacheable(lambda self, district_id: f"districts:{district_id}", ttl=3600)
+    @cache.cacheable(
+        lambda self, district_id: f"districts:{district_id}", ttl=3600
+    )
     def get_district(self, district_id: int):
         """Get a specific district by ID."""
         district = self.uow.districts.get(district_id)
         if not district:
             raise HTTPException(404, "District not found")
-            
+
         # Convert to dictionary for better caching
         return {
             "district_id": district.district_id,
             "district_name": district.district_name,
             "district_code": district.district_code,
             "description": district.description,
-            "area": float(district.area) if district.area is not None else None,
+            "area": (
+                float(district.area) if district.area is not None else None
+            ),
             "population": district.population,
             "region_id": district.region_id,
-            "created_at": district.created_at.isoformat() if district.created_at else None,
+            "created_at": (
+                district.created_at.isoformat()
+                if district.created_at
+                else None
+            ),
         }
 
-    def update_district(self, district_id: int, payload: DistrictSchema.Create) -> District:
+    def update_district(
+        self, district_id: int, payload: DistrictSchema.Create
+    ) -> District:
         with self.uow:
             district = self.uow.districts.get(district_id)
             if not district:
@@ -192,7 +248,11 @@ class GeoService:
                 cache.invalidate("districts:list")
             except IntegrityError as e:
                 self.uow.rollback()
-                handle_integrity_error(e, "District", {"district_code": "code", "district_name": "name"})
+                handle_integrity_error(
+                    e,
+                    "District",
+                    {"district_code": "code", "district_name": "name"},
+                )
             return district
 
     def delete_district(self, district_id: int):
@@ -222,12 +282,20 @@ class GeoService:
                 cache.invalidate("cities")
             except IntegrityError as e:
                 self.uow.rollback()
-                handle_integrity_error(e, "City", {"city_code": "code", "city_name": "name"})
+                handle_integrity_error(
+                    e, "City", {"city_code": "code", "city_name": "name"}
+                )
             return city
 
-    @cache.cacheable(lambda self, district_id=None, limit=10, offset=0: 
-                    f"cities:list:{district_id or 'all'}:{limit}:{offset}", ttl=3600)
-    def get_cities(self, district_id: int = None, limit: int = 10, offset: int = 0):
+    @cache.cacheable(lambda self,
+                     district_id=None,
+                     limit=10,
+                     offset=0: f"cities:list:{district_id or 'all'}:{limit}:{offset}",
+                     ttl=3600,
+                     )
+    def get_cities(
+        self, district_id: int = None, limit: int = 10, offset: int = 0
+    ):
         """Get paginated cities, optionally filtered by district."""
         if district_id:
             # For filtered, return all in district (no pagination for now)
@@ -235,20 +303,26 @@ class GeoService:
             total = len(items)
         else:
             items, total = self.uow.cities.get_paginated(limit, offset)
-            
+
         # Convert SQLAlchemy models to dictionaries for better caching
         serialized_items = []
         for city in items:
-            serialized_items.append({
-                "city_id": city.city_id,
-                "city_name": city.city_name,
-                "city_code": city.city_code,
-                "region_id": city.region_id,
-                "district_id": city.district_id,
-                "population": city.population,
-                "created_at": city.created_at.isoformat() if city.created_at else None,
-            })
-            
+            serialized_items.append(
+                {
+                    "city_id": city.city_id,
+                    "city_name": city.city_name,
+                    "city_code": city.city_code,
+                    "region_id": city.region_id,
+                    "district_id": city.district_id,
+                    "population": city.population,
+                    "created_at": (
+                        city.created_at.isoformat()
+                        if city.created_at
+                        else None
+                    ),
+                }
+            )
+
         return {"items": serialized_items, "total": total}
 
     @cache.cacheable(lambda self, city_id: f"cities:{city_id}", ttl=3600)
@@ -257,7 +331,7 @@ class GeoService:
         city = self.uow.cities.get(city_id)
         if not city:
             raise HTTPException(404, "City not found")
-            
+
         # Convert to dictionary for better caching
         return {
             "city_id": city.city_id,
@@ -266,7 +340,9 @@ class GeoService:
             "region_id": city.region_id,
             "district_id": city.district_id,
             "population": city.population,
-            "created_at": city.created_at.isoformat() if city.created_at else None,
+            "created_at": (
+                city.created_at.isoformat() if city.created_at else None
+            ),
         }
 
     def update_city(self, city_id: int, payload: CitySchema.Create) -> City:
@@ -285,7 +361,9 @@ class GeoService:
                 cache.invalidate("cities:list")
             except IntegrityError as e:
                 self.uow.rollback()
-                handle_integrity_error(e, "City", {"city_code": "code", "city_name": "name"})
+                handle_integrity_error(
+                    e, "City", {"city_code": "code", "city_name": "name"}
+                )
             return city
 
     def delete_city(self, city_id: int):

@@ -12,10 +12,16 @@ class Favourite(Base):
 
     favorite_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[str] = mapped_column(String, ForeignKey("users.user_id"))
-    location_id: Mapped[str] = mapped_column(String, ForeignKey("locations.location_id"))
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
+    location_id: Mapped[str] = mapped_column(
+        String, ForeignKey("locations.location_id")
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=dt.datetime.utcnow
+    )
     updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow
+        DateTime(timezone=True),
+        default=dt.datetime.utcnow,
+        onupdate=dt.datetime.utcnow,
     )
 
     # Relationships

@@ -1,4 +1,5 @@
 import uuid
+
 import pytest
 
 
@@ -24,14 +25,19 @@ class TestUserAPI:
             "role_id": 3,
         }
 
-        register_response = client.post("/lib/v1/users/register", json=user_payload)
+        register_response = client.post(
+            "/lib/v1/users/register", json=user_payload
+        )
         assert register_response.status_code == 200, register_response.text
         data = register_response.json()
         assert "user_id" in data
-        user_id = data["user_id"]
+        data["user_id"]
 
         # 2. LoginPage with correct credentials
-        login_data = {"username": user_payload["username"], "password": user_payload["password"]}
+        login_data = {
+            "username": user_payload["username"],
+            "password": user_payload["password"],
+        }
         login_response = client.post("/lib/v1/users/token", data=login_data)
         assert login_response.status_code == 200, login_response.text
         token_data = login_response.json()
@@ -39,8 +45,13 @@ class TestUserAPI:
         assert token_data["token_type"] == "bearer"
 
         # 3. Bad login
-        wrong_pass_data = {"username": user_payload["username"], "password": "WrongPassword"}
-        wrong_login_resp = client.post("/lib/v1/users/token", data=wrong_pass_data)
+        wrong_pass_data = {
+            "username": user_payload["username"],
+            "password": "WrongPassword",
+        }
+        wrong_login_resp = client.post(
+            "/lib/v1/users/token", data=wrong_pass_data
+        )
         assert wrong_login_resp.status_code == 401  # Unauthorized
         assert "access_token" not in wrong_login_resp.json()
 
@@ -98,24 +109,35 @@ class TestUserAPI:
         assert reg_admin.status_code == 200
 
         # 3. LoginPage as admin
-        admin_login_data = {"username": admin_user["username"], "password": admin_user["password"]}
-        admin_login_resp = client.post("/lib/v1/users/token", data=admin_login_data)
+        admin_login_data = {
+            "username": admin_user["username"],
+            "password": admin_user["password"],
+        }
+        admin_login_resp = client.post(
+            "/lib/v1/users/token", data=admin_login_data
+        )
         assert admin_login_resp.status_code == 200
         admin_token = admin_login_resp.json()["access_token"]
         headers = {"Authorization": f"Bearer {admin_token}"}
 
         # 4. Admin promotes normal user to admin
-        promote_resp = client.put(f"/lib/v1/users/{normal_id}/role?new_role=2", headers=headers)
+        promote_resp = client.put(
+            f"/lib/v1/users/{normal_id}/role?new_role=2", headers=headers
+        )
         assert promote_resp.status_code == 200, promote_resp.text
         updated_user = promote_resp.json()
         assert updated_user["role_id"] == 2
 
         # 5. Admin tries to promote user to superadmin
-        promote_superadmin = client.put(f"/lib/v1/users/{normal_id}/role?new_role=1", headers=headers)
+        promote_superadmin = client.put(
+            f"/lib/v1/users/{normal_id}/role?new_role=1", headers=headers
+        )
         assert promote_superadmin.status_code == 403
 
         # 6. Admin bans the now-admin user
-        ban_resp = client.put(f"/lib/v1/users/{normal_id}/ban", headers=headers)
+        ban_resp = client.put(
+            f"/lib/v1/users/{normal_id}/ban", headers=headers
+        )
         assert ban_resp.status_code == 200
         banned_user = ban_resp.json()
         assert banned_user["is_active"] is False
@@ -130,20 +152,29 @@ class TestUserAPI:
             "role_id": 3,
         }
         reg_normal2 = client.post("/lib/v1/users/register", json=normal2)
-        normal2_id = reg_normal2.json()["user_id"]
+        reg_normal2.json()["user_id"]
         assert reg_normal2.status_code == 200
 
         login_normal2 = client.post(
-            "/lib/v1/users/token", data={"username": normal2["username"], "password": normal2["password"]}
+            "/lib/v1/users/token",
+            data={
+                "username": normal2["username"],
+                "password": normal2["password"],
+            },
         )
         assert login_normal2.status_code == 200
         normal2_token = login_normal2.json()["access_token"]
         normal2_headers = {"Authorization": f"Bearer {normal2_token}"}
 
         # 8. normal2 tries to promote (banned) user => 403
-        fail_resp = client.put(f"/lib/v1/users/{normal_id}/role?new_role=2", headers=normal2_headers)
+        fail_resp = client.put(
+            f"/lib/v1/users/{normal_id}/role?new_role=2",
+            headers=normal2_headers,
+        )
         assert fail_resp.status_code == 403
 
         # 9. normal2 tries to ban someone => 403
-        fail_ban = client.put(f"/lib/v1/users/{admin_id}/ban", headers=normal2_headers)
+        fail_ban = client.put(
+            f"/lib/v1/users/{admin_id}/ban", headers=normal2_headers
+        )
         assert fail_ban.status_code == 403

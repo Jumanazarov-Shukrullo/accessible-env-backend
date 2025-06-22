@@ -14,6 +14,7 @@ from app.models.category_model import Category
 # Location models
 from app.models.location_model import Location, LocationDetails, LocationStats
 from app.models.location_images_model import LocationImage
+
 # Location Inspector model
 from app.models.location_inspector_model import LocationInspector
 
@@ -39,21 +40,21 @@ from app.models.assessment_model import (
     LocationSetAssessment,
     LocationAssessment,
     AssessmentComment,
-    AssessmentImage
+    AssessmentImage,
 )
 
 __all__ = [
     "Role",
-    "User", 
-    "UserProfile", 
+    "User",
+    "UserProfile",
     "UserSecurity",
     "Region",
-    "District", 
+    "District",
     "City",
     "Category",
     "Location",
     "LocationDetails",
-    "LocationStats", 
+    "LocationStats",
     "LocationImage",
     "LocationInspector",
     "Favourite",
@@ -67,6 +68,6 @@ __all__ = [
     "SetCriteria",
     "LocationSetAssessment",
     "LocationAssessment",
-    "AssessmentComment", 
-    "AssessmentImage"
+    "AssessmentComment",
+    "AssessmentImage",
 ]

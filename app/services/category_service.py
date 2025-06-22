@@ -20,7 +20,9 @@ class CategoryService:
             cache.invalidate("categories")
             return cat
 
-    @cache.cacheable(lambda self, category_id: f"categories:{category_id}", ttl=3600)
+    @cache.cacheable(
+        lambda self, category_id: f"categories:{category_id}", ttl=3600
+    )
     def get(self, category_id: int) -> Category:
         """Get a specific category by ID."""
         category = self.uow.categories.get(category_id)
@@ -28,7 +30,9 @@ class CategoryService:
             raise HTTPException(404, "Category not found")
         return category
 
-    def update(self, category_id: int, payload: CategorySchema.Update) -> Category:
+    def update(
+        self, category_id: int, payload: CategorySchema.Update
+    ) -> Category:
         """Update a category with the given data."""
         category = self.uow.categories.get(category_id)
         if not category:
@@ -60,9 +64,10 @@ class CategoryService:
     @cache.cacheable(lambda self: "categories:tree", ttl=3600)
     def tree(self):
         """Return all root categories with their children as a hierarchical tree."""
-        # First, get all categories (more efficient than multiple queries in this case)
+        # First, get all categories (more efficient than multiple queries in
+        # this case)
         all_categories = self.uow.categories.get_all()
-        
+
         # Create serialization-friendly representation
         category_dict = {}
         for cat in all_categories:
@@ -74,7 +79,7 @@ class CategoryService:
                 "description": cat.description,
                 "parent_category_id": cat.parent_category_id,
                 "icon": cat.icon or "Building2",  # Default icon if none set
-                "children": []  # Will be populated in next step
+                "children": [],  # Will be populated in next step
             }
 
         # Create a map of parent_id to children
@@ -116,23 +121,31 @@ class CategoryService:
             for cat in categories
         ]
 
-    @cache.cacheable(lambda self, category_id: f"categories:breadcrumb:{category_id}", ttl=3600)
+    @cache.cacheable(
+        lambda self, category_id: f"categories:breadcrumb:{category_id}",
+        ttl=3600,
+    )
     def breadcrumb(self, category_id: int):
         """Return the breadcrumb (ancestry) for a category."""
-        all_categories = {cat.category_id: cat for cat in self.uow.categories.get_all()}
+        all_categories = {
+            cat.category_id: cat for cat in self.uow.categories.get_all()
+        }
         path = []
         current = all_categories.get(category_id)
         while current:
             # Convert to dict to avoid SQLAlchemy serialization issues
-            path.append({
-                "category_id": current.category_id,
-                "category_name": current.category_name,
-                "slug": current.slug,
-                "description": current.description,
-                "parent_category_id": current.parent_category_id,
-                "icon": current.icon or "Building2",  # Default icon if none set
-            })
+            path.append(
+                {
+                    "category_id": current.category_id,
+                    "category_name": current.category_name,
+                    "slug": current.slug,
+                    "description": current.description,
+                    "parent_category_id": current.parent_category_id,
+                    "icon": current.icon
+                    or "Building2",  # Default icon if none set
+                }
+            )
             current = all_categories.get(current.parent_category_id)
-        
+
         # Return reversed path (from root to current)
         return list(reversed(path))

@@ -1,29 +1,47 @@
+from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 
 from sqlalchemy.orm import Session
 
-from app.domain.repositories.assessment_comment_repository import AssessmentCommentRepository
-from app.domain.repositories.assessment_detail_repository import AssessmentDetailRepository
-from app.domain.repositories.assessment_image_repository import AssessmentImageRepository
+from app.domain.repositories.assessment_comment_repository import (
+    AssessmentCommentRepository,
+)
+from app.domain.repositories.assessment_detail_repository import (
+    AssessmentDetailRepository,
+)
+from app.domain.repositories.assessment_image_repository import (
+    AssessmentImageRepository,
+)
 from app.domain.repositories.assessment_repository import AssessmentRepository
-from app.domain.repositories.assessment_set_repository import AssessmentSetRepository
+from app.domain.repositories.assessment_set_repository import (
+    AssessmentSetRepository,
+)
 from app.domain.repositories.category_repository import CategoryRepository
 from app.domain.repositories.comment_repository import CommentRepository
 from app.domain.repositories.criteria_repository import CriteriaRepository
 from app.domain.repositories.favourite_repository import FavouriteRepository
-from app.domain.repositories.geo_repository import CityRepository, DistrictRepository, RegionRepository
-from app.domain.repositories.location_image_repository import LocationImageRepository
+from app.domain.repositories.geo_repository import (
+    CityRepository,
+    DistrictRepository,
+    RegionRepository,
+)
+from app.domain.repositories.location_image_repository import (
+    LocationImageRepository,
+)
 from app.domain.repositories.location_repository import LocationRepository
-from app.domain.repositories.notification_repository import NotificationRepository
+from app.domain.repositories.notification_repository import (
+    NotificationRepository,
+)
 from app.domain.repositories.permission_repository import PermissionRepository
 from app.domain.repositories.rating_repository import RatingRepository
 from app.domain.repositories.review_repository import ReviewRepository
 from app.domain.repositories.role_repository import RoleRepository
-from app.domain.repositories.set_criteria_repository import SetCriteriaRepository
+from app.domain.repositories.set_criteria_repository import (
+    SetCriteriaRepository,
+)
 from app.domain.repositories.statistic_repository import StatisticRepository
 from app.domain.repositories.user_repository import UserRepository
 
-from abc import ABC, abstractmethod
 
 class IUnitOfWork(ABC):
     @abstractmethod
@@ -34,8 +52,8 @@ class IUnitOfWork(ABC):
     def commit(self): ...
     @abstractmethod
     def rollback(self): ...
-    # plus abstract attributes: users, roles, etc.
 
+    # plus abstract attributes: users, roles, etc.
 
 
 class UnitOfWork(AbstractContextManager, IUnitOfWork):

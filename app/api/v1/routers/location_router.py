@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status, Response
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from fastapi.exceptions import HTTPException
 
 from app.api.v1.dependencies import get_uow, require_roles
@@ -9,11 +9,18 @@ from app.core.auth import auth_manager
 from app.core.constants import RoleID
 from app.domain.unit_of_work import UnitOfWork
 from app.models.user_model import User
-from app.schemas.location_schema import LocationCreate, LocationFilter, LocationResponse, LocationUpdate, PaginatedLocations
-from app.services.location_service import LocationService
+from app.schemas.location_schema import (
+    LocationCreate,
+    LocationFilter,
+    LocationResponse,
+    LocationUpdate,
+    PaginatedLocations,
+)
 from app.services.assessment_service import AssessmentService
+from app.services.location_service import LocationService
 from app.utils.logger import get_logger
 from app.utils.pdf_report import render_pdf
+
 
 logger = get_logger("location_router")
 
@@ -34,29 +41,69 @@ class LocationRouter:
             "/",
             response_model=LocationResponse,
             status_code=status.HTTP_201_CREATED,
-            dependencies=[Depends(require_roles([RoleID.SUPERADMIN.value, RoleID.ADMIN.value]))],
+            dependencies=[
+                Depends(
+                    require_roles(
+                        [RoleID.SUPERADMIN.value, RoleID.ADMIN.value]
+                    )
+                )
+            ],
         )(self._create_location)
 
-        self.router.get("/", response_model=PaginatedLocations)(self._list_locations)
-        
-        # Public endpoints - Put these BEFORE the parameterized routes to avoid conflicts
-        self.router.get("/popular", response_model=List[LocationResponse])(self._get_popular_locations)
-        self.router.get("/recently-rated", response_model=List[LocationResponse])(self._get_recently_rated_locations)
-        
-        self.router.get("/{location_id}", response_model=LocationResponse)(self._get_location)
+        self.router.get("/", response_model=PaginatedLocations)(
+            self._list_locations
+        )
+
+        # Public endpoints - Put these BEFORE the parameterized routes to avoid
+        # conflicts
+        self.router.get("/popular", response_model=List[LocationResponse])(
+            self._get_popular_locations
+        )
+        self.router.get(
+            "/recently-rated", response_model=List[LocationResponse]
+        )(self._get_recently_rated_locations)
+
+        self.router.get("/{location_id}", response_model=LocationResponse)(
+            self._get_location
+        )
         self.router.get("/{location_id}/images")(self._get_location_images)
+        self.router.post(
+            "/{location_id}/images",
+            status_code=status.HTTP_201_CREATED,
+            dependencies=[
+                Depends(
+                    require_roles(
+                        [RoleID.SUPERADMIN.value, RoleID.ADMIN.value]
+                    )
+                )
+            ],
+        )(self._upload_location_images)
 
         self.router.put(
             "/{location_id}",
             response_model=LocationResponse,
-            dependencies=[Depends(require_roles([RoleID.SUPERADMIN.value, RoleID.ADMIN.value]))],
+            dependencies=[
+                Depends(
+                    require_roles(
+                        [RoleID.SUPERADMIN.value, RoleID.ADMIN.value]
+                    )
+                )
+            ],
         )(self._update_location)
 
         # Filter endpoints
-        self.router.get("/by_category/{category_id}", response_model=List[LocationResponse])(self._get_by_category)
-        self.router.get("/by_region/{region_id}", response_model=List[LocationResponse])(self._get_by_region)
-        self.router.get("/by_district/{district_id}", response_model=List[LocationResponse])(self._get_by_district)
-        self.router.get("/by_city/{city_id}", response_model=List[LocationResponse])(self._get_by_city)
+        self.router.get(
+            "/by_category/{category_id}", response_model=List[LocationResponse]
+        )(self._get_by_category)
+        self.router.get(
+            "/by_region/{region_id}", response_model=List[LocationResponse]
+        )(self._get_by_region)
+        self.router.get(
+            "/by_district/{district_id}", response_model=List[LocationResponse]
+        )(self._get_by_district)
+        self.router.get(
+            "/by_city/{city_id}", response_model=List[LocationResponse]
+        )(self._get_by_city)
 
         # Inspector management
         self.router.post(
@@ -72,15 +119,27 @@ class LocationRouter:
         )(self._remove_inspector)
 
         # Location interaction endpoints
-        self.router.get("/{location_id}/stats", response_model=dict)(self._get_location_stats)
-        self.router.get("/{location_id}/favorites/status")(self._get_favorite_status)
-        self.router.post("/{location_id}/favorites", status_code=status.HTTP_201_CREATED)(self._add_to_favorites)
-        self.router.delete("/{location_id}/favorites", status_code=status.HTTP_204_NO_CONTENT)(self._remove_from_favorites)
+        self.router.get("/{location_id}/stats", response_model=dict)(
+            self._get_location_stats
+        )
+        self.router.get("/{location_id}/favorites/status")(
+            self._get_favorite_status
+        )
+        self.router.post(
+            "/{location_id}/favorites", status_code=status.HTTP_201_CREATED
+        )(self._add_to_favorites)
+        self.router.delete(
+            "/{location_id}/favorites", status_code=status.HTTP_204_NO_CONTENT
+        )(self._remove_from_favorites)
         self.router.get("/{location_id}/ratings")(self._get_location_ratings)
-        self.router.post("/{location_id}/ratings", status_code=status.HTTP_201_CREATED)(self._add_rating)
+        self.router.post(
+            "/{location_id}/ratings", status_code=status.HTTP_201_CREATED
+        )(self._add_rating)
 
         # PDF report
-        self.router.get("/{location_id}/report", response_class=Response)(self._download_report)
+        self.router.get("/{location_id}/report", response_class=Response)(
+            self._download_report
+        )
 
     # ---------------------------------------------------------------------- #
     # endpoints
@@ -113,7 +172,29 @@ class LocationRouter:
         location = LocationService(uow).get_location_detail(str(location_id))
         if not location:
             raise HTTPException(status_code=404, detail="Location not found")
-        return location.images or []
+        return location.get("images", [])
+
+    async def _upload_location_images(
+        self,
+        location_id: UUID,
+        files: List[UploadFile] = File(...),
+        uow: UnitOfWork = Depends(get_uow),
+        current_user: User = Depends(auth_manager.get_current_user),
+    ):
+        logger.info(f"Uploading {len(files)} images for location {location_id}")
+        
+        # Use ImageService to handle the direct upload
+        from app.services.image_service import ImageService
+        image_service = ImageService(uow)
+        
+        try:
+            uploaded_images = image_service.upload_images_direct(
+                str(location_id), files, current_user
+            )
+            return uploaded_images
+        except Exception as e:
+            logger.error(f"Failed to upload images: {str(e)}")
+            raise
 
     async def _update_location(
         self,
@@ -123,7 +204,9 @@ class LocationRouter:
         current_user: User = Depends(auth_manager.get_current_user),
     ):
         logger.info(f"Updating location {location_id}")
-        return LocationService(uow).update_location(location_id, payload, current_user)
+        return LocationService(uow).update_location(
+            location_id, payload, current_user
+        )
 
     async def _list_locations(
         self,
@@ -148,7 +231,9 @@ class LocationRouter:
             status=status,
             min_accessibility_score=min_score,
         )
-        return LocationService(uow).get_locations_paginated(page=page, size=size, filters=filters)
+        return LocationService(uow).get_locations_paginated(
+            page=page, size=size, filters=filters
+        )
 
     async def _get_by_category(
         self,
@@ -206,7 +291,9 @@ class LocationRouter:
         current_user: User = Depends(auth_manager.get_current_user),
     ):
         logger.info(f"Assigning inspector {user_id} to location {location_id}")
-        LocationService(uow).assign_inspector(current_user, location_id, user_id)
+        LocationService(uow).assign_inspector(
+            current_user, location_id, user_id
+        )
 
     async def _remove_inspector(
         self,
@@ -215,8 +302,12 @@ class LocationRouter:
         uow: UnitOfWork = Depends(get_uow),
         current_user: User = Depends(auth_manager.get_current_user),
     ):
-        logger.info(f"Removing inspector {user_id} from location {location_id}")
-        LocationService(uow).unassign_inspector(current_user, location_id, user_id)
+        logger.info(
+            f"Removing inspector {user_id} from location {location_id}"
+        )
+        LocationService(uow).unassign_inspector(
+            current_user, location_id, user_id
+        )
 
     async def _get_location_stats(
         self,
@@ -280,7 +371,7 @@ class LocationRouter:
             raise HTTPException(status_code=404, detail="Location not found")
 
         # Images
-        images = location.images
+        images = location.get("images", [])
 
         # Get verified assessments for report
         assess_service = AssessmentService(uow)
@@ -288,7 +379,9 @@ class LocationRouter:
         assessments = assess_service.list_location_assessments(location_id)
         for a in assessments:
             if a.is_verified:
-                verified_details.extend(assess_service.get_assessment_details(a.assessment_id))
+                verified_details.extend(
+                    assess_service.get_assessment_details(a.assessment_id)
+                )
 
         try:
             pdf_bytes = render_pdf(
@@ -299,13 +392,18 @@ class LocationRouter:
                     "assessments": verified_details,
                 },
             )
-            headers = {"Content-Disposition": f"attachment; filename=location_{location_id}.pdf"}
-            return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
-        except RuntimeError as e:
+            headers = {
+                "Content-Disposition": f"attachment; filename=location_{location_id}.pdf"}
+            return Response(
+                content=pdf_bytes,
+                media_type="application/pdf",
+                headers=headers,
+            )
+        except RuntimeError:
             # PDF generation not available
             raise HTTPException(
-                status_code=503, 
-                detail="PDF generation is temporarily unavailable. Please contact system administrator."
+                status_code=503,
+                detail="PDF generation is temporarily unavailable. Please contact system administrator.",
             )
 
 

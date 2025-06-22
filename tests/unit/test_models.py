@@ -1,8 +1,9 @@
 import unittest
 from uuid import uuid4
-from app.models.user_model import User
-from app.models.role_model import Role
+
 from app.models.permission_model import Permission
+from app.models.role_model import Role
+from app.models.user_model import User
 
 
 class TestUserModel(unittest.TestCase):
@@ -14,7 +15,9 @@ class TestUserModel(unittest.TestCase):
             email="test@example.com",
             password_hash="hashed123",
         )
-        self.assertFalse(user.email_verified, "Default email_verified should be False")
+        self.assertFalse(
+            user.email_verified, "Default email_verified should be False"
+        )
         self.assertTrue(user.is_active, "Default is_active should be True")
         self.assertEqual(user.failed_login_attempts, 0)
 
@@ -37,6 +40,8 @@ class TestRoleModel(unittest.TestCase):
 
 class TestPermissionModel(unittest.TestCase):
     def test_permission_fields(self):
-        perm = Permission(permission_name="can_edit", description="Edit permission")
+        perm = Permission(
+            permission_name="can_edit", description="Edit permission"
+        )
         self.assertEqual(perm.permission_name, "can_edit")
         self.assertEqual(perm.description, "Edit permission")

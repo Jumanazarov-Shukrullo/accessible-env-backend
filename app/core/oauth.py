@@ -1,4 +1,3 @@
-import httpx
 from authlib.integrations.starlette_client import OAuth
 
 from app.core.config import settings
@@ -14,6 +13,8 @@ oauth.register(
     userinfo_endpoint="https://openidconnect.googleapis.com/v1/userinfo",  # ← here
     client_id=settings.auth.google_client_id,
     client_secret=settings.auth.google_client_secret,
-    client_kwargs={"scope": "openid email profile https://www.googleapis.com/auth/drive.metadata.readonly"},
+    client_kwargs={
+        "scope": "openid email profile https://www.googleapis.com/auth/drive.metadata.readonly"
+    },
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
 )

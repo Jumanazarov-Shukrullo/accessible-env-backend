@@ -1,20 +1,20 @@
 """Unit tests for UserService - testing business logic and interactions."""
 
-import pytest
-from unittest.mock import Mock, patch
 from datetime import datetime, timezone
+from unittest.mock import Mock, patch
 
-from app.services.user_service import UserService
-from app.models.user_model import User
-from app.schemas.user_schema import UserCreate, InviteCreate
-from app.domain.exceptions import (
-    UserNotFound, 
-    UserAlreadyExists, 
-    InvalidCredentials,
-    CannotModifySuperAdmin,
-    CannotModifySelf
-)
+import pytest
+
 from app.core.constants import RoleID
+from app.domain.exceptions import (
+    CannotModifySelf,
+    CannotModifySuperAdmin,
+    InvalidCredentials,
+    UserAlreadyExists,
+)
+from app.models.user_model import User
+from app.schemas.user_schema import InviteCreate, UserCreate
+from app.services.user_service import UserService
 
 
 class TestUserService:
@@ -45,8 +45,7 @@ class TestUserService:
     def user_service(self, mock_uow, mock_security_service):
         """Create UserService instance with mocked dependencies."""
         return UserService(
-            uow=mock_uow,
-            security_service=mock_security_service
+            uow=mock_uow, security_service=mock_security_service
         )
 
     @pytest.fixture
@@ -62,7 +61,7 @@ class TestUserService:
             role_id=RoleID.USER.value,
             is_active=True,
             email_verified=False,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
         )
 
     def test_register_user_success(self, user_service, mock_uow):
@@ -72,7 +71,7 @@ class TestUserService:
             email="new@example.com",
             password="secure_password",
             first_name="New",
-            surname="User"
+            surname="User",
         )
 
         # Mock repository responses
@@ -83,11 +82,11 @@ class TestUserService:
             username=user_data.username,
             email=user_data.email,
             first_name=user_data.first_name,
-            surname=user_data.surname
+            surname=user_data.surname,
         )
 
         # Execute
-        with patch('app.utils.cache.invalidate'):
+        with patch("app.utils.cache.invalidate"):
             user, verification_link = user_service.register_user(user_data)
 
         # Verify
@@ -97,14 +96,16 @@ class TestUserService:
         mock_uow.users.create.assert_called_once()
         mock_uow.commit.assert_called_once()
 
-    def test_register_user_duplicate_username(self, user_service, mock_uow, sample_user):
+    def test_register_user_duplicate_username(
+        self, user_service, mock_uow, sample_user
+    ):
         """Test registration with duplicate username."""
         user_data = UserCreate(
             username="testuser",
             email="different@example.com",
             password="password",
             first_name="Test",
-            surname="User"
+            surname="User",
         )
 
         mock_uow.users.get_by_username.return_value = sample_user
@@ -114,14 +115,16 @@ class TestUserService:
         with pytest.raises(UserAlreadyExists):
             user_service.register_user(user_data)
 
-    def test_register_user_duplicate_email(self, user_service, mock_uow, sample_user):
+    def test_register_user_duplicate_email(
+        self, user_service, mock_uow, sample_user
+    ):
         """Test registration with duplicate email."""
         user_data = UserCreate(
             username="different_user",
             email="test@example.com",
             password="password",
             first_name="Test",
-            surname="User"
+            surname="User",
         )
 
         mock_uow.users.get_by_username.return_value = None
@@ -131,14 +134,18 @@ class TestUserService:
         with pytest.raises(UserAlreadyExists):
             user_service.register_user(user_data)
 
-    def test_verify_email_success(self, user_service, mock_uow, sample_user, mock_security_service):
+    def test_verify_email_success(
+        self, user_service, mock_uow, sample_user, mock_security_service
+    ):
         """Test successful email verification."""
         token = "valid_token"
-        mock_security_service.decode_token.return_value = {"email": sample_user.email}
+        mock_security_service.decode_token.return_value = {
+            "email": sample_user.email
+        }
         mock_uow.users.get_by_email.return_value = sample_user
         mock_uow.users.update.return_value = sample_user
 
-        with patch('app.utils.cache.invalidate'):
+        with patch("app.utils.cache.invalidate"):
             result = user_service.verify_email(token)
 
         assert result.email_verified is True
@@ -151,7 +158,7 @@ class TestUserService:
             username="admin",
             email="admin@example.com",
             role_id=RoleID.ADMIN.value,
-            is_active=True
+            is_active=True,
         )
 
         target_user = User(
@@ -159,7 +166,7 @@ class TestUserService:
             username="target",
             email="target@example.com",
             role_id=RoleID.USER.value,
-            is_active=True
+            is_active=True,
         )
 
         mock_uow.users.get_by_id.return_value = target_user
@@ -170,18 +177,16 @@ class TestUserService:
         assert result.role_id == RoleID.INSPECTOR.value
         mock_uow.users.update.assert_called_once()
 
-    def test_change_role_cannot_modify_superadmin(self, user_service, mock_uow):
+    def test_change_role_cannot_modify_superadmin(
+        self, user_service, mock_uow
+    ):
         """Test that superadmin users cannot be modified."""
         admin_user = User(
-            user_id="admin_id",
-            role_id=RoleID.ADMIN.value,
-            is_active=True
+            user_id="admin_id", role_id=RoleID.ADMIN.value, is_active=True
         )
 
         superadmin_user = User(
-            user_id="super_id",
-            role_id=RoleID.SUPERADMIN.value,
-            is_active=True
+            user_id="super_id", role_id=RoleID.SUPERADMIN.value, is_active=True
         )
 
         mock_uow.users.get_by_id.return_value = superadmin_user
@@ -192,9 +197,7 @@ class TestUserService:
     def test_change_role_cannot_modify_self(self, user_service, mock_uow):
         """Test that users cannot modify their own role."""
         admin_user = User(
-            user_id="admin_id",
-            role_id=RoleID.ADMIN.value,
-            is_active=True
+            user_id="admin_id", role_id=RoleID.ADMIN.value, is_active=True
         )
 
         mock_uow.users.get_by_id.return_value = admin_user
@@ -205,9 +208,7 @@ class TestUserService:
     def test_ban_user_success(self, user_service, mock_uow, sample_user):
         """Test successful user ban."""
         admin_user = User(
-            user_id="admin_id",
-            role_id=RoleID.ADMIN.value,
-            is_active=True
+            user_id="admin_id", role_id=RoleID.ADMIN.value, is_active=True
         )
 
         mock_uow.users.get_by_id.return_value = sample_user
@@ -220,46 +221,61 @@ class TestUserService:
 
     def test_update_profile_success(self, user_service, sample_user):
         """Test successful profile update."""
-        update_data = {
-            "first_name": "Updated",
-            "phone_number": "+1234567890"
-        }
+        update_data = {"first_name": "Updated", "phone_number": "+1234567890"}
 
         result = user_service.update_profile(sample_user, update_data)
 
         assert result.first_name == "Updated"
         assert result.phone_number == "+1234567890"
 
-    def test_update_profile_picture_success(self, user_service, sample_user, mock_security_service):
+    def test_update_profile_picture_success(
+        self, user_service, sample_user, mock_security_service
+    ):
         """Test successful profile picture update."""
         mock_file = Mock()
         mock_file.filename = "test.jpg"
 
-        with patch('app.utils.external_storage.MinioClient') as mock_minio_class:
+        with patch(
+            "app.utils.external_storage.MinioClient"
+        ) as mock_minio_class:
             mock_minio = mock_minio_class.return_value
             mock_minio.upload_file = Mock()
-            mock_minio.presigned_get_url.return_value = "http://example.com/image.jpg"
+            mock_minio.presigned_get_url.return_value = (
+                "http://example.com/image.jpg"
+            )
 
-            result = user_service.update_profile_picture(sample_user, mock_file)
+            result = user_service.update_profile_picture(
+                sample_user, mock_file
+            )
 
             assert result == "http://example.com/image.jpg"
             mock_minio.upload_file.assert_called_once()
 
-    def test_change_password_success(self, user_service, sample_user, mock_security_service):
+    def test_change_password_success(
+        self, user_service, sample_user, mock_security_service
+    ):
         """Test successful password change."""
         old_password = "old_password"
         new_password = "new_secure_password"
 
         mock_security_service.verify_password.return_value = True
-        mock_security_service.hash_password.return_value = "new_hashed_password"
+        mock_security_service.hash_password.return_value = (
+            "new_hashed_password"
+        )
 
         user_service.change_password(sample_user, old_password, new_password)
 
         assert sample_user.password_hash == "new_hashed_password"
-        mock_security_service.verify_password.assert_called_once_with(old_password, sample_user.password_hash)
-        mock_security_service.hash_password.assert_called_once_with(new_password)
+        mock_security_service.verify_password.assert_called_once_with(
+            old_password, sample_user.password_hash
+        )
+        mock_security_service.hash_password.assert_called_once_with(
+            new_password
+        )
 
-    def test_change_password_invalid_old_password(self, user_service, sample_user, mock_security_service):
+    def test_change_password_invalid_old_password(
+        self, user_service, sample_user, mock_security_service
+    ):
         """Test password change with invalid old password."""
         old_password = "wrong_password"
         new_password = "new_password"
@@ -267,14 +283,16 @@ class TestUserService:
         mock_security_service.verify_password.return_value = False
 
         with pytest.raises(InvalidCredentials):
-            user_service.change_password(sample_user, old_password, new_password)
+            user_service.change_password(
+                sample_user, old_password, new_password
+            )
 
-    def test_create_user_with_role_success(self, user_service, mock_uow, mock_security_service):
+    def test_create_user_with_role_success(
+        self, user_service, mock_uow, mock_security_service
+    ):
         """Test successful user creation with specific role."""
         admin_user = User(
-            user_id="admin_id",
-            role_id=RoleID.ADMIN.value,
-            username="admin"
+            user_id="admin_id", role_id=RoleID.ADMIN.value, username="admin"
         )
 
         invite_data = InviteCreate(
@@ -282,22 +300,24 @@ class TestUserService:
             email="invited@example.com",
             first_name="Invited",
             surname="User",
-            role_id=RoleID.INSPECTOR.value
+            role_id=RoleID.INSPECTOR.value,
         )
 
         mock_uow.users.get_by_username.return_value = None
         mock_uow.users.get_by_email.return_value = None
-        
+
         created_user = User(
             user_id="new_id",
             username=invite_data.username,
             email=invite_data.email,
-            role_id=invite_data.role_id
+            role_id=invite_data.role_id,
         )
         mock_uow.users.create.return_value = created_user
         mock_uow.users.update.return_value = created_user
 
-        user, temp_password = user_service.create_user_with_role(invite_data, admin_user)
+        user, temp_password = user_service.create_user_with_role(
+            invite_data, admin_user
+        )
 
         assert user.username == invite_data.username
         assert user.role_id == invite_data.role_id
@@ -307,13 +327,18 @@ class TestUserService:
     def test_list_users_paginated(self, user_service, mock_uow):
         """Test paginated user listing."""
         mock_users = [Mock(), Mock(), Mock()]
-        mock_uow.users.get_minimal_users_paginated.return_value = (mock_users, 3)
+        mock_uow.users.get_minimal_users_paginated.return_value = (
+            mock_users,
+            3,
+        )
 
         users, total = user_service.list_users_paginated(limit=10, offset=0)
 
         assert len(users) == 3
         assert total == 3
-        mock_uow.users.get_minimal_users_paginated.assert_called_once_with(10, 0)
+        mock_uow.users.get_minimal_users_paginated.assert_called_once_with(
+            10, 0
+        )
 
     def test_search_users(self, user_service, mock_uow):
         """Test user search functionality."""
@@ -344,22 +369,24 @@ class TestUserService:
             email="test@example.com",
             first_name="Test",
             middle_name="Middle",
-            surname="User"
+            surname="User",
         )
 
         profile = user_service.get_user_profile(user_with_middle)
 
         assert profile["full_name"] == "Test Middle User"
 
-    @patch('app.utils.cache.invalidate')
-    def test_cache_invalidation_on_user_operations(self, mock_cache_invalidate, user_service, mock_uow):
+    @patch("app.utils.cache.invalidate")
+    def test_cache_invalidation_on_user_operations(
+        self, mock_cache_invalidate, user_service, mock_uow
+    ):
         """Test that cache is properly invalidated during user operations."""
         user_data = UserCreate(
             username="newuser",
             email="new@example.com",
             password="password",
             first_name="New",
-            surname="User"
+            surname="User",
         )
 
         mock_uow.users.get_by_username.return_value = None
@@ -368,14 +395,16 @@ class TestUserService:
 
         user_service.register_user(user_data)
 
-        mock_cache_invalidate.assert_called_with('users:')
+        mock_cache_invalidate.assert_called_with("users:")
 
     def test_user_service_integration_with_domain_service(self, user_service):
         """Test that UserService properly integrates with domain service."""
         # Test domain service is initialized
         assert user_service.domain_service is not None
-        
+
         # Test that domain service methods are accessible
-        assert hasattr(user_service.domain_service, 'validate_user_registration')
-        assert hasattr(user_service.domain_service, 'validate_role_change')
-        assert hasattr(user_service.domain_service, 'construct_full_name') 
+        assert hasattr(
+            user_service.domain_service, "validate_user_registration"
+        )
+        assert hasattr(user_service.domain_service, "validate_role_change")
+        assert hasattr(user_service.domain_service, "construct_full_name")

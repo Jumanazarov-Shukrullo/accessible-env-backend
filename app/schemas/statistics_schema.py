@@ -1,10 +1,12 @@
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
 from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
 
 
 class LocationStats(BaseModel):
     """Statistics for locations in a specific category/region."""
+
     total_locations: int
     new_buildings: dict  # {"total": int, "good": int, "bad": int}
     old_buildings: dict  # {"total": int, "good": int, "bad": int}
@@ -17,6 +19,7 @@ class LocationStats(BaseModel):
 
 class RegionStats(BaseModel):
     """Statistics for a specific region."""
+
     region_id: int
     region_name: str
     stats: LocationStats
@@ -26,6 +29,7 @@ class RegionStats(BaseModel):
 
 class CategoryStats(BaseModel):
     """Statistics for a specific category with regional breakdown."""
+
     category_id: int
     category_name: str
     regions: List[RegionStats]
@@ -36,6 +40,7 @@ class CategoryStats(BaseModel):
 
 class BuildingAssessmentSummary(BaseModel):
     """Summary of building assessment scores for classification."""
+
     location_id: UUID
     location_name: str
     status: str  # 'new', 'old', 'under_construction', 'inactive', 'closed'
@@ -45,4 +50,4 @@ class BuildingAssessmentSummary(BaseModel):
     total_assessments: int
     is_good: bool  # true if average_score >= 70
 
-    model_config = ConfigDict(from_attributes=True) 
+    model_config = ConfigDict(from_attributes=True)

@@ -5,7 +5,9 @@ from app.api.v1.routers.geo_router import geo_router
 from app.api.v1.routers.location_router import location_router
 from app.api.v1.routers.notification_router import notification_router
 from app.api.v1.routers.assessment_router import assessment_router
-from app.api.v1.routers.assessment_detail_router import assessment_detail_router
+from app.api.v1.routers.assessment_detail_router import (
+    assessment_detail_router,
+)
 from app.api.v1.routers.review_router import review_router
 from app.api.v1.routers.rating_router import RatingRouter
 from app.api.v1.routers.statistic_router import statistic_router
@@ -19,7 +21,9 @@ from app.api.v1.routers.permission_router import permission_router
 
 api_router = APIRouter()
 
-api_router.include_router(user_router_instance.router, prefix="/users", tags=["Users"])
+api_router.include_router(
+    user_router_instance.router, prefix="/users", tags=["Users"]
+)
 api_router.include_router(role_router, tags=["Roles"])
 api_router.include_router(permission_router, tags=["Permissions"])
 api_router.include_router(category_router)

@@ -2,10 +2,11 @@ import datetime as dt
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
 
 if TYPE_CHECKING:
     from .location_model import Location  # noqa
@@ -16,9 +17,16 @@ class LocationInspector(Base):
     __tablename__ = "location_inspectors"
     __table_args__ = {"extend_existing": True}
 
-    location_id: Mapped[str] = mapped_column(ForeignKey("locations.location_id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
-    assigned_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
+    location_id: Mapped[str] = mapped_column(
+        ForeignKey("locations.location_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True
+    )
+    assigned_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=dt.datetime.utcnow
+    )
 
     location: Mapped["Location"] = relationship(back_populates="inspectors")
     user: Mapped["User"] = relationship(lazy="joined")
@@ -29,16 +37,28 @@ class LocationInspector(Base):
 
     @hybrid_property
     def first_name(self):
-        return self.user.profile.first_name if self.user and self.user.profile else None
+        return (
+            self.user.profile.first_name
+            if self.user and self.user.profile
+            else None
+        )
 
     @hybrid_property
     def surname(self):
-        return self.user.profile.surname if self.user and self.user.profile else None
+        return (
+            self.user.profile.surname
+            if self.user and self.user.profile
+            else None
+        )
 
     @hybrid_property
     def middle_name(self):
-        return self.user.profile.middle_name if self.user and self.user.profile else None
-    
+        return (
+            self.user.profile.middle_name
+            if self.user and self.user.profile
+            else None
+        )
+
     @hybrid_property
     def email(self):
         return self.user.email if self.user else None

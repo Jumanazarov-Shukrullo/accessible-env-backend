@@ -1,25 +1,22 @@
-import os
-import pytest
-import tempfile
 from typing import Generator
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.main import app
+from app.core.security import security_manager
 from app.db.base import Base
 from app.db.session import get_db
-from app.core.config import settings
-from app.models.user_model import User, UserProfile, UserSecurity
-from app.models.role_model import Role
-from app.models.location_model import Location, LocationDetails, LocationStats
+from app.main import app
 from app.models.category_model import Category
-from app.models.region_model import Region
-from app.models.district_model import District
 from app.models.city_model import City
-from app.core.security import security_manager
+from app.models.district_model import District
+from app.models.location_model import Location, LocationDetails, LocationStats
+from app.models.region_model import Region
+from app.models.role_model import Role
+from app.models.user_model import User, UserProfile, UserSecurity
 
 
 # Create in-memory SQLite database for testing
@@ -28,7 +25,9 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine
+)
 
 
 @pytest.fixture(scope="function")
@@ -37,12 +36,12 @@ def db_session() -> Generator[Session, None, None]:
     connection = engine.connect()
     transaction = connection.begin()
     session = TestingSessionLocal(bind=connection)
-    
+
     # Create all tables
     Base.metadata.create_all(bind=engine)
-    
+
     yield session
-    
+
     session.close()
     transaction.rollback()
     connection.close()
@@ -51,6 +50,7 @@ def db_session() -> Generator[Session, None, None]:
 @pytest.fixture(scope="function")
 def client(db_session: Session) -> Generator[TestClient, None, None]:
     """Create a test client with database session override."""
+
     def override_get_db():
         try:
             yield db_session
@@ -66,9 +66,7 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
 def sample_role(db_session: Session) -> Role:
     """Create a sample role for testing."""
     role = Role(
-        role_name="test_user",
-        description="Test user role",
-        is_active=True
+        role_name="test_user", description="Test user role", is_active=True
     )
     db_session.add(role)
     db_session.commit()
@@ -80,9 +78,7 @@ def sample_role(db_session: Session) -> Role:
 def admin_role(db_session: Session) -> Role:
     """Create an admin role for testing."""
     role = Role(
-        role_name="admin",
-        description="Administrator role",
-        is_active=True
+        role_name="admin", description="Administrator role", is_active=True
     )
     db_session.add(role)
     db_session.commit()
@@ -99,7 +95,7 @@ def sample_user(db_session: Session, sample_role: Role) -> User:
         password_hash=security_manager.get_password_hash("testpass123"),
         role_id=sample_role.role_id,
         is_active=True,
-        email_verified=True
+        email_verified=True,
     )
     db_session.add(user)
     db_session.flush()
@@ -110,15 +106,13 @@ def sample_user(db_session: Session, sample_role: Role) -> User:
         first_name="Test",
         surname="User",
         full_name="Test User",
-        language_preference="en"
+        language_preference="en",
     )
     db_session.add(profile)
 
     # Create user security
     security = UserSecurity(
-        user_id=user.user_id,
-        failed_login_attempts=0,
-        two_factor_enabled=False
+        user_id=user.user_id, failed_login_attempts=0, two_factor_enabled=False
     )
     db_session.add(security)
 
@@ -136,7 +130,7 @@ def admin_user(db_session: Session, admin_role: Role) -> User:
         password_hash=security_manager.get_password_hash("adminpass123"),
         role_id=admin_role.role_id,
         is_active=True,
-        email_verified=True
+        email_verified=True,
     )
     db_session.add(user)
     db_session.flush()
@@ -147,15 +141,13 @@ def admin_user(db_session: Session, admin_role: Role) -> User:
         first_name="Admin",
         surname="User",
         full_name="Admin User",
-        language_preference="en"
+        language_preference="en",
     )
     db_session.add(profile)
 
     # Create user security
     security = UserSecurity(
-        user_id=user.user_id,
-        failed_login_attempts=0,
-        two_factor_enabled=False
+        user_id=user.user_id, failed_login_attempts=0, two_factor_enabled=False
     )
     db_session.add(security)
 
@@ -170,7 +162,7 @@ def sample_category(db_session: Session) -> Category:
     category = Category(
         category_name="Test Category",
         slug="test-category",
-        description="A test category"
+        description="A test category",
     )
     db_session.add(category)
     db_session.commit()
@@ -184,7 +176,7 @@ def sample_region(db_session: Session) -> Region:
     region = Region(
         region_name="Test Region",
         region_code="TR",
-        description="A test region"
+        description="A test region",
     )
     db_session.add(region)
     db_session.commit()
@@ -199,7 +191,7 @@ def sample_district(db_session: Session, sample_region: Region) -> District:
         district_name="Test District",
         district_code="TD",
         region_id=sample_region.region_id,
-        description="A test district"
+        description="A test district",
     )
     db_session.add(district)
     db_session.commit()
@@ -208,13 +200,15 @@ def sample_district(db_session: Session, sample_region: Region) -> District:
 
 
 @pytest.fixture
-def sample_city(db_session: Session, sample_region: Region, sample_district: District) -> City:
+def sample_city(
+    db_session: Session, sample_region: Region, sample_district: District
+) -> City:
     """Create a sample city for testing."""
     city = City(
         city_name="Test City",
         city_code="TC",
         region_id=sample_region.region_id,
-        district_id=sample_district.district_id
+        district_id=sample_district.district_id,
     )
     db_session.add(city)
     db_session.commit()
@@ -223,8 +217,13 @@ def sample_city(db_session: Session, sample_region: Region, sample_district: Dis
 
 
 @pytest.fixture
-def sample_location(db_session: Session, sample_category: Category, sample_region: Region, 
-                   sample_district: District, sample_city: City) -> Location:
+def sample_location(
+    db_session: Session,
+    sample_category: Category,
+    sample_region: Region,
+    sample_district: District,
+    sample_city: City,
+) -> Location:
     """Create a sample location for testing."""
     location = Location(
         location_name="Test Location",
@@ -235,7 +234,7 @@ def sample_location(db_session: Session, sample_category: Category, sample_regio
         region_id=sample_region.region_id,
         district_id=sample_district.district_id,
         city_id=sample_city.city_id,
-        status="active"
+        status="active",
     )
     db_session.add(location)
     db_session.flush()
@@ -245,7 +244,7 @@ def sample_location(db_session: Session, sample_category: Category, sample_regio
         location_id=location.location_id,
         contact_info="555-0123",
         website_url="https://testlocation.com",
-        description="A test location"
+        description="A test location",
     )
     db_session.add(details)
 
@@ -254,7 +253,7 @@ def sample_location(db_session: Session, sample_category: Category, sample_regio
         location_id=location.location_id,
         accessibility_score=7.5,
         total_reviews=0,
-        total_ratings=0
+        total_ratings=0,
     )
     db_session.add(stats)
 
@@ -284,17 +283,19 @@ def admin_auth_headers(admin_user: User) -> dict:
 @pytest.fixture
 def mock_minio():
     """Mock MinIO storage for testing."""
-    with patch('app.utils.external_storage.MinioClient') as mock:
+    with patch("app.utils.external_storage.MinioClient") as mock:
         mock_instance = mock.return_value
         mock_instance.upload_file.return_value = "test-object-name"
-        mock_instance.presigned_get_url.return_value = "https://test.minio.url/test-object"
+        mock_instance.presigned_get_url.return_value = (
+            "https://test.minio.url/test-object"
+        )
         yield mock_instance
 
 
 @pytest.fixture
 def mock_email_service():
     """Mock email service for testing."""
-    with patch('app.services.email_service.EmailService') as mock:
+    with patch("app.services.email_service.EmailService") as mock:
         mock_instance = mock.return_value
         mock_instance.send_email.return_value = True
-        yield mock_instance 
+        yield mock_instance

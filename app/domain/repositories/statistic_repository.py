@@ -23,5 +23,10 @@ class StatisticRepository(SQLAlchemyRepository[Statistic, int]):
         if metric:
             stmt = stmt.where(Statistic.metric_type == metric)
         if period_from and period_to:
-            stmt = stmt.where(and_(Statistic.period_start >= period_from, Statistic.period_end <= period_to))
+            stmt = stmt.where(
+                and_(
+                    Statistic.period_start >= period_from,
+                    Statistic.period_end <= period_to,
+                )
+            )
         return self.db.scalars(stmt).all()

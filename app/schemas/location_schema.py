@@ -1,13 +1,9 @@
-from typing import Dict, List, Optional
-from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
+from typing import Dict, List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, ConfigDict, computed_field, validator
-
-from .location_image_schema import LocationImageOut
-from app.models.location_model import LocationStatus
-from .category_schema import CategorySchema
+from pydantic import BaseModel, ConfigDict, computed_field, validator
 
 
 class InspectorOut(BaseModel):
@@ -26,7 +22,9 @@ class InspectorOut(BaseModel):
     def full_name(self) -> Optional[str]:
         if self.first_name and self.surname:
             middle = f" {self.middle_name} " if self.middle_name else " "
-            return f"{self.first_name}{middle}{self.surname}".replace("  ", " ").strip()
+            return f"{self.first_name}{middle}{self.surname}".replace(
+                "  ", " "
+            ).strip()
         return None
 
 
@@ -41,28 +39,38 @@ class LocationBase(BaseModel):
     city_id: Optional[int] = None
     status: str = "active"
 
-    @validator('status')
+    @validator("status")
     def validate_status(cls, v):
-        allowed_statuses = ['active', 'inactive', 'new', 'old', 'under_construction', 'closed']
+        allowed_statuses = [
+            "active",
+            "inactive",
+            "new",
+            "old",
+            "under_construction",
+            "closed",
+        ]
         if v not in allowed_statuses:
-            raise ValueError(f'Status must be one of: {", ".join(allowed_statuses)}')
+            raise ValueError(
+                f'Status must be one of: {", ".join(allowed_statuses)}'
+            )
         return v
 
-    @validator('latitude')
+    @validator("latitude")
     def validate_latitude(cls, v):
         if v < -90 or v > 90:
-            raise ValueError('Latitude must be between -90 and 90')
+            raise ValueError("Latitude must be between -90 and 90")
         return v
 
-    @validator('longitude')
+    @validator("longitude")
     def validate_longitude(cls, v):
         if v < -180 or v > 180:
-            raise ValueError('Longitude must be between -180 and 180')
+            raise ValueError("Longitude must be between -180 and 180")
         return v
 
 
 class LocationCreate(LocationBase):
     """Data needed to create a new location."""
+
     contact_info: Optional[str] = None
     website_url: Optional[str] = None
     operating_hours: Optional[Dict] = None
@@ -71,6 +79,7 @@ class LocationCreate(LocationBase):
 
 class LocationUpdate(BaseModel):
     """Data that can be updated for a location."""
+
     location_name: Optional[str] = None
     address: Optional[str] = None
     latitude: Optional[Decimal] = None
@@ -80,7 +89,7 @@ class LocationUpdate(BaseModel):
     district_id: Optional[int] = None
     city_id: Optional[int] = None
     status: Optional[str] = None
-    
+
     # Details fields that can be updated
     contact_info: Optional[str] = None
     website_url: Optional[str] = None
@@ -158,10 +167,10 @@ class LocationImage(LocationImageBase):
 class LocationRatingBase(BaseModel):
     rating_value: int
 
-    @validator('rating_value')
+    @validator("rating_value")
     def validate_rating(cls, v):
         if v < 0 or v > 10:
-            raise ValueError('Rating must be between 0 and 10')
+            raise ValueError("Rating must be between 0 and 10")
         return v
 
 
@@ -199,75 +208,79 @@ class Favourite(FavouriteBase):
 
 class LocationResponse(LocationCore):
     """Complete location response with details and stats"""
+
     details: Optional[LocationDetails] = None
     stats: Optional[LocationStats] = None
     images: List[LocationImage] = []
     inspectors: List[InspectorOut] = []
-    
+
     # Flattened fields from details for easy frontend access
     contact_info: Optional[str] = None
     website_url: Optional[str] = None
     operating_hours: Optional[Dict] = None
     description: Optional[str] = None
-    
-    # Flattened fields from stats for easy frontend access  
+
+    # Flattened fields from stats for easy frontend access
     accessibility_score: Optional[Decimal] = None
     total_reviews: int = 0
     total_ratings: int = 0
     average_rating: Optional[Decimal] = None
     last_assessment_date: Optional[datetime] = None
-    
+
     # Category and region names for proper display
     category_name: Optional[str] = None
     region_name: Optional[str] = None
     district_name: Optional[str] = None
     city_name: Optional[str] = None
-    
+
     # Breadcrumb navigation data
     breadcrumb: Optional[list[dict]] = None
-    
+
     # Primary image URL for header display
     primary_image_url: Optional[str] = None
 
     class Config:
         from_attributes = True
-        
+
     def __init__(self, **data):
         # Flatten details fields to top level for backward compatibility
-        if 'details' in data and data['details']:
-            details = data['details']
-            if hasattr(details, 'contact_info'):  # SQLAlchemy object
-                data['contact_info'] = details.contact_info
-                data['website_url'] = details.website_url  
-                data['operating_hours'] = details.operating_hours
-                data['description'] = details.description
+        if "details" in data and data["details"]:
+            details = data["details"]
+            if hasattr(details, "contact_info"):  # SQLAlchemy object
+                data["contact_info"] = details.contact_info
+                data["website_url"] = details.website_url
+                data["operating_hours"] = details.operating_hours
+                data["description"] = details.description
             elif isinstance(details, dict):  # Dictionary
-                data['contact_info'] = details.get('contact_info')
-                data['website_url'] = details.get('website_url')
-                data['operating_hours'] = details.get('operating_hours')
-                data['description'] = details.get('description')
-            
+                data["contact_info"] = details.get("contact_info")
+                data["website_url"] = details.get("website_url")
+                data["operating_hours"] = details.get("operating_hours")
+                data["description"] = details.get("description")
+
         # Flatten stats fields to top level for backward compatibility
-        if 'stats' in data and data['stats']:
-            stats = data['stats']
-            if hasattr(stats, 'accessibility_score'):  # SQLAlchemy object
-                data['accessibility_score'] = stats.accessibility_score
-                data['total_reviews'] = stats.total_reviews
-                data['total_ratings'] = stats.total_ratings
-                data['average_rating'] = stats.average_rating
-                data['last_assessment_date'] = stats.last_assessment_date
+        if "stats" in data and data["stats"]:
+            stats = data["stats"]
+            if hasattr(stats, "accessibility_score"):  # SQLAlchemy object
+                data["accessibility_score"] = stats.accessibility_score
+                data["total_reviews"] = stats.total_reviews
+                data["total_ratings"] = stats.total_ratings
+                data["average_rating"] = stats.average_rating
+                data["last_assessment_date"] = stats.last_assessment_date
             elif isinstance(stats, dict):  # Dictionary
-                data['accessibility_score'] = stats.get('accessibility_score')
-                data['total_reviews'] = stats.get('total_reviews', 0)
-                data['total_ratings'] = stats.get('total_ratings', 0)
-                data['average_rating'] = stats.get('average_rating')
-                data['last_assessment_date'] = stats.get('last_assessment_date')
-            
+                data["accessibility_score"] = stats.get("accessibility_score")
+                data["total_reviews"] = stats.get("total_reviews", 0)
+                data["total_ratings"] = stats.get("total_ratings", 0)
+                data["average_rating"] = stats.get("average_rating")
+                data["last_assessment_date"] = stats.get(
+                    "last_assessment_date"
+                )
+
         super().__init__(**data)
 
 
 class LocationDetailResponse(LocationResponse):
     """Detailed location response with additional info"""
+
     category_name: Optional[str] = None
     region_name: Optional[str] = None
     district_name: Optional[str] = None
@@ -279,26 +292,42 @@ class LocationDetailResponse(LocationResponse):
 
 
 class LocationListResponse(BaseModel):
-    """Location list response for search endpoints"""
-    location_id: str
+    """Response model for location list endpoints"""
+    location_id: UUID
     location_name: str
     address: str
-    latitude: Decimal
-    longitude: Decimal
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
     status: str
-    accessibility_score: Optional[Decimal] = None
-    average_rating: Optional[Decimal] = None
+    accessibility_score: Optional[float] = None
+    average_rating: Optional[float] = None
     total_reviews: int = 0
     category_name: Optional[str] = None
     region_name: Optional[str] = None
+    district_name: Optional[str] = None
+    city_name: Optional[str] = None
     primary_image_url: Optional[str] = None
+    
+    # Enhanced fields for editing and admin display
+    category_id: Optional[int] = None
+    region_id: Optional[int] = None
+    district_id: Optional[int] = None
+    city_id: Optional[int] = None
+    contact_info: Optional[str] = None
+    website_url: Optional[str] = None
+    description: Optional[str] = None
+    operating_hours: Optional[Dict] = None
+    
+    # Inspector information
+    inspector_count: int = 0
+    inspectors: List[InspectorOut] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LocationSearchResponse(BaseModel):
     """Location search response with distance"""
+
     location_id: str
     location_name: str
     address: str
@@ -318,11 +347,20 @@ class LocationBulkUpdate(BaseModel):
     location_ids: List[str]
     status: str
 
-    @validator('status')
+    @validator("status")
     def validate_status(cls, v):
-        allowed_statuses = ['active', 'inactive', 'new', 'old', 'under_construction', 'closed']
+        allowed_statuses = [
+            "active",
+            "inactive",
+            "new",
+            "old",
+            "under_construction",
+            "closed",
+        ]
         if v not in allowed_statuses:
-            raise ValueError(f'Status must be one of: {", ".join(allowed_statuses)}')
+            raise ValueError(
+                f'Status must be one of: {", ".join(allowed_statuses)}'
+            )
         return v
 
 
@@ -333,6 +371,7 @@ class LocationAssignInspector(BaseModel):
 
 class LocationFilter(BaseModel):
     """Query parameters for location filtering."""
+
     category_id: Optional[int] = None
     region_id: Optional[int] = None
     district_id: Optional[int] = None

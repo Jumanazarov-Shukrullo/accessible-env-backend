@@ -4,25 +4,41 @@ from app.api.v1.dependencies import get_uow
 from app.core.auth import auth_manager
 from app.domain.unit_of_work import UnitOfWork
 from app.models.user_model import User
-from app.schemas.assessment_set_schema import AssessmentSetSchema, AssessmentSetResponse
+from app.schemas.assessment_set_schema import (
+    AssessmentSetResponse,
+    AssessmentSetSchema,
+)
 from app.services.assessment_service import AssessmentService
 from app.utils.logger import get_logger
+
 
 logger = get_logger("assessment_set_router")
 
 
 class AssessmentSetRouter:
     def __init__(self):
-        self.router = APIRouter(prefix="/assessment-sets", tags=["Assessment Sets"])
+        self.router = APIRouter(
+            prefix="/assessment-sets", tags=["Assessment Sets"]
+        )
         self._register()
 
     def _register(self):
-        self.router.get("/", response_model=list[AssessmentSetResponse])(self._list_sets)
-        self.router.post("/", response_model=AssessmentSetResponse)(self._create_set)
-        self.router.get("/{set_id}", response_model=AssessmentSetResponse)(self._get_set)
-        self.router.put("/{set_id}", response_model=AssessmentSetResponse)(self._update_set)
+        self.router.get("/", response_model=list[AssessmentSetResponse])(
+            self._list_sets
+        )
+        self.router.post("/", response_model=AssessmentSetResponse)(
+            self._create_set
+        )
+        self.router.get("/{set_id}", response_model=AssessmentSetResponse)(
+            self._get_set
+        )
+        self.router.put("/{set_id}", response_model=AssessmentSetResponse)(
+            self._update_set
+        )
         self.router.get("/{set_id}/criteria")(self._get_criteria)
-        self.router.post("/{set_id}/criteria", status_code=status.HTTP_201_CREATED)(self._add_criterion_to_set)
+        self.router.post(
+            "/{set_id}/criteria", status_code=status.HTTP_201_CREATED
+        )(self._add_criterion_to_set)
 
     # ------------------------------------------------------------------
     async def _list_sets(
@@ -40,18 +56,30 @@ class AssessmentSetRouter:
             formatted_criteria = []
             if hasattr(assessment_set, "criteria"):
                 for sc in assessment_set.criteria:
-                    criterion = sc.criterion if hasattr(sc, "criterion") else None
+                    criterion = (
+                        sc.criterion if hasattr(sc, "criterion") else None
+                    )
                     formatted_criteria.append(
                         {
                             "set_id": sc.set_id,
                             "criterion_id": sc.criterion_id,
                             "sequence": sc.sequence,
-                            "criterion_name": criterion.criterion_name if criterion else "Unknown",
+                            "criterion_name": (
+                                criterion.criterion_name
+                                if criterion
+                                else "Unknown"
+                            ),
                             "code": criterion.code if criterion else "Unknown",
-                            "description": criterion.description if criterion else None,
-                            "max_score": criterion.max_score if criterion else 0,
+                            "description": (
+                                criterion.description if criterion else None
+                            ),
+                            "max_score": (
+                                criterion.max_score if criterion else 0
+                            ),
                             "unit": criterion.unit if criterion else None,
-                            "created_at": criterion.created_at if criterion else None,
+                            "created_at": (
+                                criterion.created_at if criterion else None
+                            ),
                         }
                     )
 
@@ -88,7 +116,9 @@ class AssessmentSetRouter:
         logger.info(f"Getting assessment set {set_id}")
         assessment_set = AssessmentService(uow).get_set(set_id)
         if not assessment_set:
-            raise HTTPException(status_code=404, detail="Assessment set not found")
+            raise HTTPException(
+                status_code=404, detail="Assessment set not found"
+            )
         return assessment_set
 
     async def _get_criteria(
@@ -119,9 +149,13 @@ class AssessmentSetRouter:
         current: User = Depends(auth_manager.get_current_user),
     ):
         logger.info(f"Updating assessment set {set_id}")
-        updated_set = AssessmentService(uow).update_assessment_set(set_id, assessment_set)
+        updated_set = AssessmentService(uow).update_assessment_set(
+            set_id, assessment_set
+        )
         if not updated_set:
-            raise HTTPException(status_code=404, detail="Assessment set not found")
+            raise HTTPException(
+                status_code=404, detail="Assessment set not found"
+            )
         return updated_set
 
 

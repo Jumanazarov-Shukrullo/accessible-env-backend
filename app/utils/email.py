@@ -1,8 +1,8 @@
-from contextlib import contextmanager
-from typing import Generator
 import smtplib
-from email.mime.text import MIMEText
+from contextlib import contextmanager
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Generator
 
 from app.core.config import settings
 
@@ -18,13 +18,19 @@ class EmailSender:
         Using a context-manager ensures the `QUIT` command is always sent
         (see Python docs: smtplib.SMTP supports the *with* statement).
         """
-        with smtplib.SMTP(settings.smtp.smtp_server, settings.smtp.smtp_port) as server:
+        with smtplib.SMTP(
+            settings.smtp.smtp_server, settings.smtp.smtp_port
+        ) as server:
             server.starttls()
-            server.login(settings.smtp.sender_email, settings.smtp.sender_password)
+            server.login(
+                settings.smtp.sender_email, settings.smtp.sender_password
+            )
             yield server  # `quit()` is called automatically on exit
 
     @staticmethod
-    def _build_message(recipient: str, subject: str, body: str) -> MIMEMultipart:
+    def _build_message(
+        recipient: str, subject: str, body: str
+    ) -> MIMEMultipart:
         """Composes a plain-text MIME message."""
         msg = MIMEMultipart()
         msg["From"] = settings.smtp.sender_email
@@ -54,7 +60,9 @@ class EmailSender:
     # delegate to *send_email* / *_send*.
 
     @classmethod
-    def send_verification_email(cls, recipient_email: str, verification_link: str) -> None:
+    def send_verification_email(
+        cls, recipient_email: str, verification_link: str
+    ) -> None:
         body = f"""
         Hello,
 
@@ -68,7 +76,9 @@ class EmailSender:
         cls._send(recipient_email, "Verify your email", body)
 
     @classmethod
-    def send_password_reset_email(cls, recipient_email: str, reset_link: str) -> None:
+    def send_password_reset_email(
+        cls, recipient_email: str, reset_link: str
+    ) -> None:
         body = f"""
         Hello,
 
@@ -93,7 +103,9 @@ class EmailSender:
         cls._send(recipient_email, "Reset your password", body)
 
     @classmethod
-    def send_invitation_email(cls, email: str, username: str, temp_password: str) -> None:
+    def send_invitation_email(
+        cls, email: str, username: str, temp_password: str
+    ) -> None:
         body = f"""
         Hello {username},
 

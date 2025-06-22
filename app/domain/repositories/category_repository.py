@@ -9,4 +9,8 @@ class CategoryRepository(SQLAlchemyRepository[Category, int]):
         super().__init__(Category, db)
 
     def children_of(self, parent_id: int):
-        return self.db.query(Category).filter(Category.parent_category_id == parent_id).all()
+        return (
+            self.db.query(Category)
+            .filter(Category.parent_category_id == parent_id)
+            .all()
+        )

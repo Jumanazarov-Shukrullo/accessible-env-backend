@@ -35,13 +35,19 @@ class RoleRepository:
         self.db.delete(role)
         self.db.commit()
 
-    def assign_permission(self, role: Role, permission: Permission) -> RolePermission:
-        rp = RolePermission(role_id=role.role_id, permission_id=permission.permission_id)
+    def assign_permission(
+        self, role: Role, permission: Permission
+    ) -> RolePermission:
+        rp = RolePermission(
+            role_id=role.role_id, permission_id=permission.permission_id
+        )
         self.db.add(rp)
         self.db.commit()
         self.db.refresh(rp)
         return rp
 
     def revoke_permission(self, role: Role, permission: Permission) -> None:
-        self.db.query(RolePermission).filter_by(role_id=role.role_id, permission_id=permission.permission_id).delete()
+        self.db.query(RolePermission).filter_by(
+            role_id=role.role_id, permission_id=permission.permission_id
+        ).delete()
         self.db.commit()

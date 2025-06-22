@@ -7,13 +7,14 @@ from app.models.user_model import User
 from app.schemas.geo_schema import (
     CitySchema,
     DistrictSchema,
-    RegionSchema,
-    PaginatedRegions,
-    PaginatedDistricts,
     PaginatedCities,
+    PaginatedDistricts,
+    PaginatedRegions,
+    RegionSchema,
 )
 from app.services.geo_service import GeoService
 from app.utils.logger import get_logger
+
 
 logger = get_logger("geo_router")
 
@@ -24,27 +25,57 @@ class GeoRouter:
         self._register()
 
     def _register(self):
-        self.router.post("/regions", response_model=RegionSchema.Out, status_code=status.HTTP_201_CREATED)(
-            self._create_region
+        self.router.post(
+            "/regions",
+            response_model=RegionSchema.Out,
+            status_code=status.HTTP_201_CREATED,
+        )(self._create_region)
+        self.router.post(
+            "/districts",
+            response_model=DistrictSchema.Out,
+            status_code=status.HTTP_201_CREATED,
+        )(self._create_district)
+        self.router.post(
+            "/cities",
+            response_model=CitySchema.Out,
+            status_code=status.HTTP_201_CREATED,
+        )(self._create_city)
+        self.router.get("/regions", response_model=PaginatedRegions)(
+            self._get_regions
         )
-        self.router.post("/districts", response_model=DistrictSchema.Out, status_code=status.HTTP_201_CREATED)(
-            self._create_district
+        self.router.get(
+            "/regions/{region_id}", response_model=RegionSchema.Out
+        )(self._get_region)
+        self.router.get("/districts", response_model=PaginatedDistricts)(
+            self._get_districts
         )
-        self.router.post("/cities", response_model=CitySchema.Out, status_code=status.HTTP_201_CREATED)(
-            self._create_city
+        self.router.get(
+            "/districts/{district_id}", response_model=DistrictSchema.Out
+        )(self._get_district)
+        self.router.get("/cities", response_model=PaginatedCities)(
+            self._get_cities
         )
-        self.router.get("/regions", response_model=PaginatedRegions)(self._get_regions)
-        self.router.get("/regions/{region_id}", response_model=RegionSchema.Out)(self._get_region)
-        self.router.get("/districts", response_model=PaginatedDistricts)(self._get_districts)
-        self.router.get("/districts/{district_id}", response_model=DistrictSchema.Out)(self._get_district)
-        self.router.get("/cities", response_model=PaginatedCities)(self._get_cities)
-        self.router.get("/cities/{city_id}", response_model=CitySchema.Out)(self._get_city)
-        self.router.put("/regions/{region_id}", response_model=RegionSchema.Out)(self._update_region)
-        self.router.delete("/regions/{region_id}", status_code=204)(self._delete_region)
-        self.router.put("/districts/{district_id}", response_model=DistrictSchema.Out)(self._update_district)
-        self.router.delete("/districts/{district_id}", status_code=204)(self._delete_district)
-        self.router.put("/cities/{city_id}", response_model=CitySchema.Out)(self._update_city)
-        self.router.delete("/cities/{city_id}", status_code=204)(self._delete_city)
+        self.router.get("/cities/{city_id}", response_model=CitySchema.Out)(
+            self._get_city
+        )
+        self.router.put(
+            "/regions/{region_id}", response_model=RegionSchema.Out
+        )(self._update_region)
+        self.router.delete("/regions/{region_id}", status_code=204)(
+            self._delete_region
+        )
+        self.router.put(
+            "/districts/{district_id}", response_model=DistrictSchema.Out
+        )(self._update_district)
+        self.router.delete("/districts/{district_id}", status_code=204)(
+            self._delete_district
+        )
+        self.router.put("/cities/{city_id}", response_model=CitySchema.Out)(
+            self._update_city
+        )
+        self.router.delete("/cities/{city_id}", status_code=204)(
+            self._delete_city
+        )
 
     async def _create_region(
         self,
@@ -82,7 +113,9 @@ class GeoRouter:
         logger.info("Getting regions")
         return GeoService(uow).get_regions(limit=limit, offset=offset)
 
-    async def _get_region(self, region_id: int, uow: UnitOfWork = Depends(get_uow)):
+    async def _get_region(
+        self, region_id: int, uow: UnitOfWork = Depends(get_uow)
+    ):
         logger.info(f"Getting region {region_id}")
         return GeoService(uow).get_region(region_id)
 
@@ -94,9 +127,13 @@ class GeoRouter:
         offset: int = Query(0, ge=0),
     ):
         logger.info("Getting districts")
-        return GeoService(uow).get_districts(region_id, limit=limit, offset=offset)
+        return GeoService(uow).get_districts(
+            region_id, limit=limit, offset=offset
+        )
 
-    async def _get_district(self, district_id: int, uow: UnitOfWork = Depends(get_uow)):
+    async def _get_district(
+        self, district_id: int, uow: UnitOfWork = Depends(get_uow)
+    ):
         logger.info(f"Getting district {district_id}")
         return GeoService(uow).get_district(district_id)
 
@@ -108,9 +145,13 @@ class GeoRouter:
         offset: int = Query(0, ge=0),
     ):
         logger.info("Getting cities")
-        return GeoService(uow).get_cities(district_id, limit=limit, offset=offset)
+        return GeoService(uow).get_cities(
+            district_id, limit=limit, offset=offset
+        )
 
-    async def _get_city(self, city_id: int, uow: UnitOfWork = Depends(get_uow)):
+    async def _get_city(
+        self, city_id: int, uow: UnitOfWork = Depends(get_uow)
+    ):
         logger.info(f"Getting city {city_id}")
         return GeoService(uow).get_city(city_id)
 

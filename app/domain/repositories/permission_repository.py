@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -12,10 +12,18 @@ class PermissionRepository:
 
     def get(self, permission_id: int) -> Optional[Permission]:
         """Get permission by ID"""
-        return self.db.query(Permission).filter(Permission.permission_id == permission_id).first()
+        return (
+            self.db.query(Permission)
+            .filter(Permission.permission_id == permission_id)
+            .first()
+        )
 
     def get_by_name(self, permission_name: str) -> Optional[Permission]:
-        return self.db.query(Permission).filter(Permission.permission_name == permission_name).first()
+        return (
+            self.db.query(Permission)
+            .filter(Permission.permission_name == permission_name)
+            .first()
+        )
 
     def list(self) -> List[Permission]:
         """Get all permissions"""

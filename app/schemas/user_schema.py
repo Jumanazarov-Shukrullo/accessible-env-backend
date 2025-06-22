@@ -1,13 +1,13 @@
 from datetime import datetime
-from typing import Optional, List
-from uuid import UUID
+from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, ConfigDict, validator
+from pydantic import BaseModel, EmailStr, validator
 
 
 # ============================================================================
 # Core User Schemas (Authentication Table)
 # ============================================================================
+
 
 class UserBase(BaseModel):
     username: str
@@ -43,6 +43,7 @@ class UserCore(UserBase):
 # User Profile Schemas (Profile Table)
 # ============================================================================
 
+
 class UserProfileBase(BaseModel):
     full_name: Optional[str] = None
     first_name: Optional[str] = None
@@ -52,10 +53,10 @@ class UserProfileBase(BaseModel):
     profile_picture: Optional[str] = None
     language_preference: str = "en"
 
-    @validator('language_preference')
+    @validator("language_preference")
     def validate_language(cls, v):
-        if v not in ['en', 'ru', 'uz']:
-            raise ValueError('Language must be en, ru, or uz')
+        if v not in ["en", "ru", "uz"]:
+            raise ValueError("Language must be en, ru, or uz")
         return v
 
 
@@ -83,8 +84,9 @@ class UserProfile(UserProfileBase):
 
 
 # ============================================================================
-# User Security Schemas (Security Table)  
+# User Security Schemas (Security Table)
 # ============================================================================
+
 
 class UserSecurityBase(BaseModel):
     failed_login_attempts: int = 0
@@ -109,8 +111,10 @@ class UserSecurity(UserSecurityBase):
 # Combined User Response Schemas
 # ============================================================================
 
+
 class UserResponse(UserCore):
     """Complete user response with profile data"""
+
     profile: Optional[UserProfile] = None
     security: Optional[UserSecurity] = None
 
@@ -120,6 +124,7 @@ class UserResponse(UserCore):
 
 class UserDetailResponse(UserResponse):
     """Detailed user response including role information"""
+
     role_name: Optional[str] = None
 
     class Config:
@@ -128,6 +133,7 @@ class UserDetailResponse(UserResponse):
 
 class UserListResponse(BaseModel):
     """User list response for admin endpoints"""
+
     user_id: str
     username: str
     email: str
@@ -148,6 +154,7 @@ class UserListResponse(BaseModel):
 # ============================================================================
 # Authentication Schemas
 # ============================================================================
+
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -184,6 +191,7 @@ class PasswordChange(BaseModel):
 # ============================================================================
 # User Management Schemas
 # ============================================================================
+
 
 class InviteCreate(BaseModel):
     username: str

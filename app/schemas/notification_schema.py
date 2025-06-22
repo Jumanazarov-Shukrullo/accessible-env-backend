@@ -1,12 +1,14 @@
 from datetime import datetime
-from typing import Optional, Dict, List
-from pydantic import BaseModel, validator
 from enum import Enum
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, validator
 
 
 # ============================================================================
 # Notification Type and Status Enums
 # ============================================================================
+
 
 class NotificationTypeEnum(str, Enum):
     assessment_verified = "assessment_verified"
@@ -30,6 +32,7 @@ class NotificationStatusEnum(str, Enum):
 # Core Notification Schemas
 # ============================================================================
 
+
 class NotificationBase(BaseModel):
     type: NotificationTypeEnum
     subject: str
@@ -38,10 +41,10 @@ class NotificationBase(BaseModel):
     priority: Optional[int] = None
     expires_at: Optional[datetime] = None
 
-    @validator('priority')
+    @validator("priority")
     def validate_priority(cls, v):
         if v is not None and (v < 1 or v > 5):
-            raise ValueError('Priority must be between 1 and 5')
+            raise ValueError("Priority must be between 1 and 5")
         return v
 
 
@@ -80,8 +83,10 @@ class NotificationResponse(NotificationBase):
 # Notification Management Schemas
 # ============================================================================
 
+
 class NotificationBulkCreate(BaseModel):
     """Create notifications for multiple users"""
+
     user_ids: List[str]
     type: NotificationTypeEnum
     subject: str
@@ -94,6 +99,7 @@ class NotificationBulkCreate(BaseModel):
 
 class NotificationBulkUpdate(BaseModel):
     """Update multiple notifications"""
+
     notification_ids: List[str]
     status: Optional[NotificationStatusEnum] = None
     is_read: Optional[bool] = None
@@ -101,11 +107,13 @@ class NotificationBulkUpdate(BaseModel):
 
 class NotificationMarkAsRead(BaseModel):
     """Mark notification(s) as read"""
+
     notification_ids: List[str]
 
 
 class NotificationTemplate(BaseModel):
     """Notification template for different types"""
+
     type: NotificationTypeEnum
     subject_template: str
     body_template: str
@@ -119,8 +127,10 @@ class NotificationTemplate(BaseModel):
 # Notification Filters and Search
 # ============================================================================
 
+
 class NotificationFilter(BaseModel):
     """Notification filtering options"""
+
     type: Optional[NotificationTypeEnum] = None
     status: Optional[NotificationStatusEnum] = None
     is_read: Optional[bool] = None
@@ -133,6 +143,7 @@ class NotificationFilter(BaseModel):
 
 class NotificationSearch(BaseModel):
     """Notification search parameters"""
+
     query: Optional[str] = None  # Search in subject/body
     filters: Optional[NotificationFilter] = None
     sort_by: str = "created_at"
@@ -140,16 +151,24 @@ class NotificationSearch(BaseModel):
     limit: int = 50
     offset: int = 0
 
-    @validator('sort_by')
+    @validator("sort_by")
     def validate_sort_by(cls, v):
-        allowed_fields = ['created_at', 'sent_at', 'read_at', 'priority', 'subject']
+        allowed_fields = [
+            "created_at",
+            "sent_at",
+            "read_at",
+            "priority",
+            "subject",
+        ]
         if v not in allowed_fields:
-            raise ValueError(f'Sort field must be one of: {", ".join(allowed_fields)}')
+            raise ValueError(
+                f'Sort field must be one of: {", ".join(allowed_fields)}'
+            )
         return v
 
-    @validator('sort_order')
+    @validator("sort_order")
     def validate_sort_order(cls, v):
-        if v not in ['asc', 'desc']:
+        if v not in ["asc", "desc"]:
             raise ValueError('Sort order must be "asc" or "desc"')
         return v
 
@@ -158,8 +177,10 @@ class NotificationSearch(BaseModel):
 # Notification Statistics Schemas
 # ============================================================================
 
+
 class NotificationStats(BaseModel):
     """Notification statistics for user"""
+
     total_notifications: int
     unread_count: int
     pending_count: int
@@ -173,6 +194,7 @@ class NotificationStats(BaseModel):
 
 class NotificationTypeStats(BaseModel):
     """Statistics by notification type"""
+
     type: NotificationTypeEnum
     count: int
     unread_count: int
@@ -186,8 +208,10 @@ class NotificationTypeStats(BaseModel):
 # Paginated Response Schemas
 # ============================================================================
 
+
 class PaginatedNotifications(BaseModel):
     """Paginated notification response"""
+
     items: List[NotificationResponse]
     total: int
     page: int
@@ -203,8 +227,10 @@ class PaginatedNotifications(BaseModel):
 # Notification Summary Schemas
 # ============================================================================
 
+
 class NotificationSummary(BaseModel):
     """Brief notification summary for UI"""
+
     id: str
     type: NotificationTypeEnum
     subject: str
@@ -218,6 +244,7 @@ class NotificationSummary(BaseModel):
 
 class NotificationListResponse(BaseModel):
     """Lightweight notification list response"""
+
     notifications: List[NotificationSummary]
     stats: NotificationStats
 
