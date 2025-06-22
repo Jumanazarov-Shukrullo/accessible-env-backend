@@ -26,6 +26,7 @@ class StorageSettings(BaseSettings):
     minio_access_key: str = Field(...)
     minio_secret_key: str = Field(...)
     minio_bucket: str = Field(...)
+    minio_use_ssl: bool = Field(True)  # Use HTTPS by default for production
 
 
 class CacheSettings(BaseSettings):

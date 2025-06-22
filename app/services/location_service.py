@@ -34,6 +34,12 @@ from app.utils.logger import get_logger
 logger = get_logger("location_service")
 
 
+def get_image_url(image_key: str) -> str:
+    """Construct proper image URL with correct protocol based on environment"""
+    protocol = "https" if settings.storage.minio_use_ssl else "http"
+    return f"{protocol}://{settings.storage.minio_endpoint}/{settings.storage.minio_bucket}/{image_key}"
+
+
 class LocationService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
@@ -66,8 +72,8 @@ class LocationService:
             patched_images.append(
                 {
                     "image_id": img.image_id,
-                    # Sending object key
-                    "image_url": f"{settings.storage.minio_endpoint}/{settings.storage.minio_bucket}/{patched_url}",
+                                # Sending object key
+            "image_url": get_image_url(patched_url),
                     "description": img.description,
                     "position": img.position,
                 }
@@ -329,10 +335,7 @@ class LocationService:
         if location.images:
             for image in location.images:
                 # Construct full MinIO URL
-                full_image_url = f"http://{
-                    settings.storage.minio_endpoint}/{
-                    settings.storage.minio_bucket}/{
-                    image.image_url}"
+                full_image_url = get_image_url(image.image_url)
                 response_data["images"].append(
                     {
                         "image_id": image.image_id,
@@ -390,9 +393,7 @@ class LocationService:
 
         # Set primary_image_url if images exist
         if location.images and len(location.images) > 0:
-            response_data["primary_image_url"] = (
-                f"http://{settings.storage.minio_endpoint}/{settings.storage.minio_bucket}/{location.images[0].image_url}"
-            )
+            response_data["primary_image_url"] = get_image_url(location.images[0].image_url)
 
         return LocationResponse(**response_data)
 
@@ -502,7 +503,7 @@ class LocationService:
                 "images": [
                     {
                         "image_id": str(img.image_id),
-                        "image_url": f"http://{settings.storage.minio_endpoint}/{settings.storage.minio_bucket}/{img.image_url}",
+                        "image_url": get_image_url(img.image_url),
                         "description": img.description,
                         "position": img.position,
                         "location_id": str(img.location_id),
