@@ -172,7 +172,7 @@ class LocationRouter:
         location = LocationService(uow).get_location_detail(str(location_id))
         if not location:
             raise HTTPException(status_code=404, detail="Location not found")
-        return location.get("images", [])
+        return getattr(location, 'images', [])
 
     async def _upload_location_images(
         self,
@@ -371,7 +371,7 @@ class LocationRouter:
             raise HTTPException(status_code=404, detail="Location not found")
 
         # Images
-        images = location.get("images", [])
+        images = getattr(location, 'images', [])
 
         # Get verified assessments for report
         assess_service = AssessmentService(uow)
