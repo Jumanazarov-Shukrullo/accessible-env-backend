@@ -7,7 +7,11 @@ from pydantic_settings import BaseSettings
 
 class DatabaseSettings(BaseSettings):
     database_url: str = Field(...)
-    pool_size: int = Field(...)
+    pool_size: int = Field(20)  # Increased from default 10
+    max_overflow: int = Field(30)  # Allow overflow connections
+    pool_timeout: int = Field(60)  # Connection timeout in seconds
+    pool_recycle: int = Field(3600)  # Recycle connections every hour
+    pool_pre_ping: bool = Field(True)  # Validate connections before use
 
 
 class AuthSettings(BaseSettings):

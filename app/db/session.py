@@ -10,10 +10,11 @@ class DBSessionManager:
         self.engine = create_engine(
             settings.database.database_url,
             future=True,
-            pool_size=getattr(settings.database, "pool_size", 10),
-            max_overflow=getattr(settings.database, "max_overflow", 20),
-            pool_timeout=30,
-            pool_recycle=1800,
+            pool_size=settings.database.pool_size,
+            max_overflow=settings.database.max_overflow,
+            pool_timeout=settings.database.pool_timeout,
+            pool_recycle=settings.database.pool_recycle,
+            pool_pre_ping=settings.database.pool_pre_ping,
         )
         self.SessionLocal = sessionmaker(
             autocommit=False,
