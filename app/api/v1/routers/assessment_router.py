@@ -447,7 +447,7 @@ class AssessmentRouter:
                                             "location_name": (assessment.location.location_name if assessment.location else None),
                                             "address": (assessment.location.address if assessment.location else None),
                                             } if assessment.location else None),
-                         "details": ([{"location_assessment_id": detail.assessment_detail_id,
+                         "details": ([{"assessment_detail_id": detail.assessment_detail_id,
                                        "criterion_id": detail.criterion_id,
                                        "score": detail.score,
                                        "condition": detail.condition,

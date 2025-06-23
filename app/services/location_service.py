@@ -1523,7 +1523,7 @@ class LocationService:
                         {
                             "image_id": image.image_id,
                             "location_id": str(image.location_id),
-                            "image_url": image.image_url,
+                            "image_url": get_image_url(image.image_url),
                             "description": image.description,
                             "position": image.position,
                             "created_at": image.created_at,
@@ -1607,7 +1607,7 @@ class LocationService:
                         {
                             "image_id": image.image_id,
                             "location_id": str(image.location_id),
-                            "image_url": image.image_url,
+                            "image_url": get_image_url(image.image_url),
                             "description": image.description,
                             "position": image.position,
                             "created_at": image.created_at,

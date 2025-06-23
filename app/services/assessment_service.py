@@ -98,7 +98,7 @@ class AssessmentService:
             header.verifier_id = str(verifier.user_id)
             self.uow.commit()
 
-    def reject(self, assessment_id: int, verifier: User, reason: str = None):
+    def reject(self, assessment_id: int, verifier: User, reason: Optional[str] = None):
         """Reject an assessment"""
         logger.info(
             f"Rejecting assessment {assessment_id} by {verifier.user_id}"
@@ -111,7 +111,7 @@ class AssessmentService:
             assessment.status = AssessmentStatus.rejected
             assessment.rejection_reason = reason
             assessment.verified_at = dt.utcnow()
-            assessment.verified_by = str(verifier.user_id)
+            assessment.verifier_id = str(verifier.user_id)
 
             self.uow.commit()
 
@@ -144,7 +144,7 @@ class AssessmentService:
             assessment.status = AssessmentStatus.draft
             assessment.rejection_reason = None
             assessment.verified_at = None
-            assessment.verified_by = None
+            assessment.verifier_id = None
 
             # Clear admin comments from all details
             details_query = select(LocationAssessment).where(
@@ -188,7 +188,7 @@ class AssessmentService:
                 # Delete associated images first
                 images_query = select(AssessmentImage).where(
                     AssessmentImage.assessment_detail_id
-                    == detail.location_assessment_id
+                    == detail.assessment_detail_id
                 )
                 images = self.uow.db.execute(images_query).scalars().all()
 
@@ -235,405 +235,179 @@ class AssessmentService:
         return assessment
 
     def list_assessments(self):
-        """List all assessments with proper string formatting for IDs"""
-        with self.uow:
-            # Use query with joins to get location and assessment set
-            # information
-            query = (
-                select(LocationSetAssessment)
-                .options(
-                    joinedload(LocationSetAssessment.location),
-                    joinedload(LocationSetAssessment.assessment_set),
-                )
-                .order_by(LocationSetAssessment.assessment_id.desc())
+        """List all assessments with basic info"""
+        query = (
+            select(LocationSetAssessment)
+            .options(
+                joinedload(LocationSetAssessment.location),
+                joinedload(LocationSetAssessment.assessment_set),
             )
-            result = self.uow.db.execute(query)
-            assessments_db = list(result.unique().scalars().all())
+            .order_by(LocationSetAssessment.assessed_at.desc())
+        )
+        result = self.uow.db.execute(query)
+        assessments = result.unique().scalars().all()
 
-            # Format assessments for response
-            assessments = []
-            for assessment in assessments_db:
-                # Create a dict with string IDs and location info
-                assessment_dict = {
-                    "assessment_id": assessment.assessment_id,
-                    "location_id": str(assessment.location_id),
-                    "set_id": assessment.set_id,
-                    "overall_score": assessment.overall_score,
-                    "assessor_id": str(assessment.assessor_id),
-                    "status": assessment.status,
-                    "notes": assessment.notes,
-                    "assessed_at": assessment.assessed_at,
-                    "updated_at": assessment.updated_at,
-                    "submitted_at": assessment.submitted_at,
-                    "verified_at": assessment.verified_at,
-                    "verifier_id": (
-                        str(assessment.verifier_id)
-                        if assessment.verifier_id
-                        else None
-                    ),
-                    # Add location information
-                    "location_name": (
-                        assessment.location.location_name
-                        if assessment.location
-                        else "Unknown Location"
-                    ),
-                    "location_address": (
-                        assessment.location.address
-                        if assessment.location
-                        else None
-                    ),
-                    # Add assessment set information
-                    "assessment_set_name": (
-                        assessment.assessment_set.set_name
-                        if assessment.assessment_set
-                        else "Standard Assessment"
-                    ),
-                    "rejection_reason": assessment.rejection_reason,
-                }
-                assessments.append(assessment_dict)
+        assessment_list = []
+        for assessment in assessments:
+            assessment_data = {
+                "assessment_id": assessment.assessment_id,
+                "location_id": str(assessment.location_id),
+                "location_name": (
+                    assessment.location.location_name
+                    if assessment.location
+                    else "Unknown"
+                ),
+                "set_id": assessment.set_id,
+                "set_name": (
+                    assessment.assessment_set.set_name
+                    if assessment.assessment_set
+                    else "Unknown Set"
+                ),
+                "assessor_id": str(assessment.assessor_id),
+                "status": assessment.status,
+                "overall_score": assessment.overall_score,
+                "assessed_at": assessment.assessed_at,
+                "submitted_at": assessment.submitted_at,
+                "verified_at": assessment.verified_at,
+                "notes": assessment.notes,
+            }
+            assessment_list.append(assessment_data)
 
-            return assessments
+        return assessment_list
 
+    # -------------------------------- location assessments ------------------
     def get_location_assessments(self, location_id: UUID):
-        with self.uow:
-            return self.uow.assessments.get_by_location(str(location_id))
+        """Get all assessments for a specific location"""
+        return self.uow.assessments.by_location(str(location_id))
 
     def get_assessment_details(
         self, assessment_id: int
     ) -> List[LocationAssessment]:
-        """Get all criterion details for an assessment"""
-        # First, verify the assessment exists
-        assessment = self.get_assessment(assessment_id)
-        if not assessment:
-            raise HTTPException(status_code=404, detail="Assessment not found")
-
-        try:
-            # Use a safer query that explicitly selects only existing columns
-            # and handles the case where uploaded_by might not exist
-            query = text(
-                """
-                SELECT
-                    la.assessment_detail_id,
-                    la.location_set_assessment_id,
-                    la.criterion_id,
-                    la.score,
-                    la.condition,
-                    la.comment,
-                    la.admin_comments,
-                    la.is_reviewed,
-                    la.is_corrected,
-                    la.created_at,
-                    la.updated_at,
-                    ac.criterion_name,
-                    ac.code,
-                    ac.description,
-                    ac.max_score,
-                    ac.unit
-                FROM location_assessments la
-                JOIN accessibility_criteria ac ON ac.criterion_id = la.criterion_id
-                WHERE la.location_set_assessment_id = :assessment_id
-                ORDER BY la.criterion_id
-            """
+        """Get all assessment details for a specific assessment"""
+        query = (
+            select(LocationAssessment)
+            .options(
+                joinedload(LocationAssessment.criteria),
+                joinedload(LocationAssessment.assessment_images),
             )
+            .where(LocationAssessment.location_set_assessment_id == assessment_id)
+            .order_by(LocationAssessment.assessment_detail_id)
+        )
+        result = self.uow.db.execute(query)
+        return result.unique().scalars().all()
 
-            result = self.uow.db.execute(
-                query, {"assessment_id": assessment_id}
-            )
-            rows = result.fetchall()
-
-            # Convert to LocationAssessment objects
-            details = []
-            for row in rows:
-                detail = LocationAssessment(
-                    assessment_detail_id=row.assessment_detail_id,
-                    location_set_assessment_id=row.location_set_assessment_id,
-                    criterion_id=row.criterion_id,
-                    score=row.score,
-                    condition=row.condition,
-                    comment=row.comment,
-                    is_reviewed=row.is_reviewed,
-                    is_corrected=(
-                        row.is_corrected
-                        if row.is_corrected is not None
-                        else False
-                    ),
-                    created_at=row.created_at,
-                    updated_at=row.updated_at,
-                )
-
-                # Set admin_comments safely
-                setattr(detail, "admin_comments", row.admin_comments)
-
-                # Create criteria object
-                criteria = AccessibilityCriteria(
-                    criterion_id=row.criterion_id,
-                    criterion_name=row.criterion_name,
-                    code=row.code,
-                    description=row.description,
-                    max_score=row.max_score,
-                    unit=row.unit,
-                )
-                detail.criteria = criteria
-
-                # Load images separately with error handling
-                try:
-                    # Check if uploaded_by column exists before querying it
-                    check_column_query = text(
-                        """
-                        SELECT column_name
-                        FROM information_schema.columns
-                        WHERE table_name = 'assessment_images'
-                        AND column_name = 'uploaded_by'
-                    """
-                    )
-                    column_check = self.uow.db.execute(
-                        check_column_query
-                    ).fetchone()
-
-                    if column_check:
-                        # Query with uploaded_by column
-                        images_query = text(
-                            """
-                            SELECT image_id, location_set_assessment_id, assessment_detail_id,
-                                   image_url, description, uploaded_by, uploaded_at
-                            FROM assessment_images
-                            WHERE assessment_detail_id = :detail_id
-                        """
-                        )
-                    else:
-                        # Query without uploaded_by column
-                        images_query = text(
-                            """
-                            SELECT image_id, location_set_assessment_id, assessment_detail_id,
-                                   image_url, description, NULL as uploaded_by,
-                                   CURRENT_TIMESTAMP as uploaded_at
-                            FROM assessment_images
-                            WHERE assessment_detail_id = :detail_id
-                        """
-                        )
-
-                    images_result = self.uow.db.execute(
-                        images_query,
-                        {"detail_id": detail.assessment_detail_id},
-                    )
-                    image_rows = images_result.fetchall()
-
-                    images = []
-                    for img_row in image_rows:
-                        image = AssessmentImage(
-                            image_id=img_row.image_id,
-                            location_set_assessment_id=img_row.location_set_assessment_id,
-                            assessment_detail_id=img_row.assessment_detail_id,
-                            image_url=img_row.image_url,
-                            description=img_row.description,
-                            uploaded_by=img_row.uploaded_by,
-                            uploaded_at=img_row.uploaded_at,
-                        )
-                        images.append(image)
-
-                    detail.assessment_images = images
-
-                except Exception as img_error:
-                    logger.warning(
-                        f"Error loading images for detail {
-                            detail.assessment_detail_id}: {img_error}")
-                    detail.assessment_images = []
-
-                details.append(detail)
-
-            # For each detail, query comments from AssessmentComment
-            for detail in details:
-                try:
-                    # Get comments for this criterion
-                    criterion_prefix = f"[Criterion {detail.criterion_id}] "
-                    comments_query = text(
-                        """
-                        SELECT comment_text, created_at
-                        FROM assessment_comments
-                        WHERE location_set_assessment_id = :assessment_id
-                        AND comment_text LIKE :prefix
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                    """
-                    )
-
-                    comments_result = self.uow.db.execute(
-                        comments_query,
-                        {
-                            "assessment_id": assessment_id,
-                            "prefix": f"{criterion_prefix}%",
-                        },
-                    )
-                    comment_row = comments_result.fetchone()
-
-                    if comment_row:
-                        # Extract the actual comment without the prefix
-                        comment_text = comment_row.comment_text.replace(
-                            criterion_prefix, ""
-                        )
-                        setattr(detail, "admin_comments", comment_text)
-
-                except Exception as comment_error:
-                    logger.warning(
-                        f"Error loading comments for criterion {
-                            detail.criterion_id}: {comment_error}")
-
-            logger.info(
-                f"Successfully loaded {
-                    len(details)} details for assessment {assessment_id}")
-            return details
-
-        except Exception as e:
-            logger.error(
-                f"Error in get_assessment_details for assessment {assessment_id}: {e}")
-            # Fallback to simpler query if the above fails
-            try:
-                simple_query = (
-                    select(LocationAssessment)
-                    .where(
-                        LocationAssessment.location_set_assessment_id
-                        == assessment_id
-                    )
-                    .options(joinedload(LocationAssessment.criteria))
-                )
-                result = self.uow.db.execute(simple_query)
-                details = list(result.unique().scalars().all())
-
-                # Set empty images list for all details in fallback mode
-                for detail in details:
-                    detail.assessment_images = []
-                    setattr(detail, "admin_comments", None)
-
-                logger.warning(
-                    f"Used fallback query for assessment {assessment_id}, loaded {
-                        len(details)} details")
-                return details
-
-            except Exception as fallback_error:
-                logger.error(
-                    f"Fallback query also failed for assessment {assessment_id}: {fallback_error}")
-                raise HTTPException(
-                    status_code=500, detail="Failed to load assessment details"
-                )
-
-    # -------------------------------- helpers -------------------------
+    # -------------------------------- helper methods -------------------------
     def _get_or_404(self, assessment_id: int) -> LocationSetAssessment:
-        hdr = self.uow.assessments.get(assessment_id)
-        if not hdr:
+        assessment = self.uow.assessments.get(assessment_id)
+        if not assessment:
             raise HTTPException(404, "Assessment not found")
-        return hdr
+        return assessment
 
     def _require_admin(self, user: User):
-        if user.role_id not in (1, 2):
-            raise HTTPException(403, "Admin only")
+        if user.role_id not in (RoleID.ADMIN.value, RoleID.SUPERADMIN.value):
+            raise HTTPException(403, "Admin access required")
 
     def _calculate_and_set_overall_score(self, assessment_id: int) -> float:
         """Calculate and set the overall score for an assessment"""
-        # Get existing assessment details
-        existing_details = (
-            self.uow.db.query(LocationAssessment)
-            .filter(
+        with self.uow:
+            # Get all assessment details for this assessment
+            details_query = select(LocationAssessment).where(
                 LocationAssessment.location_set_assessment_id == assessment_id
             )
-            .all()
-        )
-
-        if not existing_details:
-            # If no details exist, set score to 0
+            details = self.uow.db.execute(details_query).scalars().all()
+            
+            if not details:
+                return 0.0
+            
+            # Calculate average score from all details
+            total_score = sum(detail.score for detail in details if detail.score is not None)
+            count = len([detail for detail in details if detail.score is not None])
+            
+            if count == 0:
+                overall_score = 0.0
+            else:
+                overall_score = round(total_score / count, 2)
+            
+            # Update the assessment with the calculated score
             assessment = self._get_or_404(assessment_id)
-            assessment.overall_score = 0.0
-            return 0.0
-
-        # Calculate overall score based on included criteria
-        total_score = sum(detail.score for detail in existing_details)
-        total_possible = 0
-
-        for detail in existing_details:
-            criterion = self.uow.db.get(
-                AccessibilityCriteria, detail.criterion_id
+            assessment.overall_score = overall_score
+            
+            logger.info(
+                f"Calculated overall score for assessment {assessment_id}: {overall_score} "
+                f"(from {count} details with total {total_score})"
             )
-            if criterion:
-                total_possible += criterion.max_score
+            
+            return overall_score
 
-        if total_possible == 0:
-            total_possible = 1  # Avoid division by zero
-
-        # Calculate score (0-10 scale)
-        overall_score = (total_score / total_possible) * 10
-
-        # Update assessment with calculated score
-        assessment = self._get_or_404(assessment_id)
-        assessment.overall_score = overall_score
-        
-        return overall_score
-
-    # Criteria Management
+    # -------------------------------- criteria management --------------------
     def create_criterion(
         self, data: AccessibilityCriteriaCreate
     ) -> AccessibilityCriteria:
         """Create a new accessibility criterion"""
+        logger.info(f"Creating new criterion: {data.criterion_name}")
+
         with self.uow:
             criterion = AccessibilityCriteria(
                 criterion_name=data.criterion_name,
-                code=data.code,
                 description=data.description,
+                code=data.code,
                 max_score=data.max_score,
                 unit=data.unit,
             )
             self.uow.db.add(criterion)
             self.uow.commit()
-            # Invalidate the criteria cache
-            cache.invalidate("criteria:list")
+            cache.invalidate("criteria:list")  # Clear cache
             return criterion
 
     def update_criterion(
         self, criterion_id: int, data
     ) -> Optional[AccessibilityCriteria]:
-        """Update an existing accessibility criterion"""
+        """Update an existing criterion"""
+        logger.info(f"Updating criterion {criterion_id}")
+
         with self.uow:
-            criterion = self.get_criterion(criterion_id)
+            criterion = self.uow.db.get(AccessibilityCriteria, criterion_id)
             if not criterion:
                 return None
 
-            # Update only fields that are provided in the request
-            update_data = data.dict(exclude_unset=True, exclude_none=True)
-            for field, value in update_data.items():
+            for field, value in data.model_dump(exclude_unset=True).items():
                 setattr(criterion, field, value)
 
-            self.uow.db.commit()
-            # Invalidate both the specific criterion and list caches
-            cache.invalidate(f"criteria:{criterion_id}")
-            cache.invalidate("criteria:list")
+            self.uow.commit()
+            cache.invalidate("criteria:list")  # Clear cache
+            cache.invalidate(f"criteria:{criterion_id}")  # Clear specific cache
             return criterion
 
     def delete_criterion(self, criterion_id: int) -> bool:
-        """Delete an accessibility criterion if it's not used in any assessment sets"""
+        """Delete a criterion"""
+        logger.info(f"Deleting criterion {criterion_id}")
+
         with self.uow:
-            # First check if the criterion exists
-            criterion = self.get_criterion(criterion_id)
+            criterion = self.uow.db.get(AccessibilityCriteria, criterion_id)
             if not criterion:
-                raise HTTPException(
-                    status_code=404, detail="Criterion not found"
-                )
+                return False
 
-            # Check if the criterion is used in any assessment sets
-            query = select(SetCriteria).where(
-                SetCriteria.criterion_id == criterion_id
+            # Check if criterion is used in any assessment sets
+            sets_using_criterion = (
+                self.uow.db.execute(
+                    select(SetCriteria).where(
+                        SetCriteria.criterion_id == criterion_id
+                    )
+                )
+                .scalars()
+                .all()
             )
-            result = self.uow.db.execute(query)
-            if result.first():
+
+            if sets_using_criterion:
                 raise HTTPException(
-                    status_code=400,
-                    detail="Cannot delete criterion that is used in assessment sets",
+                    400,
+                    f"Cannot delete criterion: used in {len(sets_using_criterion)} assessment sets",
                 )
 
-            # Delete the criterion
             self.uow.db.delete(criterion)
             self.uow.commit()
-
-            # Invalidate both the specific criterion and list caches
-            cache.invalidate(f"criteria:{criterion_id}")
-            cache.invalidate("criteria:list")
+            cache.invalidate("criteria:list")  # Clear cache
+            cache.invalidate(f"criteria:{criterion_id}")  # Clear specific cache
             return True
 
     @cache.cacheable(
@@ -641,11 +415,11 @@ class AssessmentService:
     )  # Cache for 1 hour
     def list_criteria(self) -> List[AccessibilityCriteria]:
         """List all accessibility criteria"""
-        query = select(AccessibilityCriteria).order_by(
-            AccessibilityCriteria.criterion_id
-        )
-        result = self.uow.db.execute(query)
-        return list(result.scalars().all())
+        with self.uow:
+            query = select(AccessibilityCriteria).order_by(
+                AccessibilityCriteria.criterion_name
+            )
+            return self.uow.db.execute(query).scalars().all()
 
     @cache.cacheable(
         lambda self, criterion_id: f"criteria:{criterion_id}", ttl=3600
@@ -653,52 +427,45 @@ class AssessmentService:
     def get_criterion(
         self, criterion_id: int
     ) -> Optional[AccessibilityCriteria]:
-        """Get details of a specific criterion"""
-        query = select(AccessibilityCriteria).where(
-            AccessibilityCriteria.criterion_id == criterion_id
-        )
-        result = self.uow.db.execute(query)
-        return result.scalar_one_or_none()
+        """Get a specific criterion"""
+        with self.uow:
+            return self.uow.db.get(AccessibilityCriteria, criterion_id)
 
-    # Assessment Sets Management
+    # -------------------------------- assessment sets ------------------------
     def create_assessment_set(
         self, data: AssessmentSetCreate
     ) -> AssessmentSet:
         """Create a new assessment set"""
+        logger.info(f"Creating new assessment set: {data.set_name}")
+
         with self.uow:
             assessment_set = AssessmentSet(
                 set_name=data.set_name,
                 description=data.description,
-                version=data.version,
-                is_active=True,
+                is_active=data.is_active,
             )
-            self.uow.assessment_sets.add(assessment_set)
+            self.uow.db.add(assessment_set)
             self.uow.commit()
-            # Invalidate set list cache
-            cache.invalidate("assessment_sets:list")
+            cache.invalidate("assessment_sets:list")  # Clear cache
             return assessment_set
 
     def update_assessment_set(
         self, set_id: int, data: AssessmentSetSchema.Update
     ) -> AssessmentSet:
         """Update an existing assessment set"""
-        with self.uow:
-            assessment_set = self.get_assessment_set(set_id)
-            if not assessment_set:
-                raise HTTPException(
-                    status_code=404, detail="Assessment set not found"
-                )
+        logger.info(f"Updating assessment set {set_id}")
 
-            # Update fields
-            assessment_set.set_name = data.set_name
-            assessment_set.description = data.description
-            assessment_set.version = data.version
-            assessment_set.is_active = data.is_active
+        with self.uow:
+            assessment_set = self.uow.db.get(AssessmentSet, set_id)
+            if not assessment_set:
+                raise HTTPException(404, "Assessment set not found")
+
+            for field, value in data.model_dump(exclude_unset=True).items():
+                setattr(assessment_set, field, value)
 
             self.uow.commit()
-            # Invalidate both specific set cache and list cache
-            cache.invalidate(f"assessment_sets:{set_id}")
-            cache.invalidate("assessment_sets:list")
+            cache.invalidate("assessment_sets:list")  # Clear cache
+            cache.invalidate(f"assessment_sets:{set_id}")  # Clear specific cache
             return assessment_set
 
     @cache.cacheable(
@@ -706,76 +473,67 @@ class AssessmentService:
     )  # Cache for 1 hour
     def list_assessment_sets(self) -> List[AssessmentSet]:
         """List all assessment sets"""
-        query = select(AssessmentSet).order_by(AssessmentSet.set_id)
-        result = self.uow.db.execute(query)
-        return list(result.scalars().all())
+        with self.uow:
+            query = select(AssessmentSet).order_by(AssessmentSet.set_name)
+            return self.uow.db.execute(query).scalars().all()
 
     @cache.cacheable(
         lambda self, set_id: f"assessment_sets:{set_id}", ttl=3600
     )  # Cache for 1 hour
     def get_assessment_set(self, set_id: int) -> Optional[AssessmentSet]:
-        """Get details of a specific assessment set with its criteria"""
-        query = (
-            select(AssessmentSet)
-            .options(
-                joinedload(AssessmentSet.set_criteria).joinedload(
-                    SetCriteria.criteria
-                )
-            )
-            .where(AssessmentSet.set_id == set_id)
-        )
-        result = self.uow.db.execute(query)
-        assessment_set = result.unique().scalar_one_or_none()
-
-        if assessment_set:
-            # Convert to dict for schema validation
-            assessment_dict = {
-                "set_id": assessment_set.set_id,
-                "set_name": assessment_set.set_name,
-                "description": assessment_set.description,
-                "version": assessment_set.version,
-                "is_active": assessment_set.is_active,
-                "created_at": assessment_set.created_at,
-                "criteria": [],
-            }
-
-            # Process criteria to include required fields from the criterion
-            # relationship
-            for set_criterion in assessment_set.set_criteria:
-                criterion = set_criterion.criteria
-                if criterion:
-                    assessment_dict["criteria"].append(
-                        {
-                            "set_id": set_criterion.set_id,
-                            "criterion_id": set_criterion.criterion_id,
-                            "sequence": set_criterion.sequence,
-                            # Add fields from the related criterion
-                            "criterion_name": criterion.criterion_name,
-                            "code": criterion.code,
-                            "description": criterion.description,
-                            "max_score": criterion.max_score,
-                            "unit": criterion.unit,
-                            "created_at": criterion.created_at,
-                        }
-                    )
-
-            return assessment_dict
-
-        return None
-
-    @cache.cacheable(
-        lambda self, set_id: f"assessment_sets:{set_id}:criteria", ttl=3600
-    )  # Cache for 1 hour
-    def get_set_criteria(self, set_id: int):
+        """Get a specific assessment set"""
         with self.uow:
-            # Check if the set exists first
-            assessment_set = self.get_assessment_set(set_id)
+            return self.uow.db.get(AssessmentSet, set_id)
+
+    def delete_assessment_set(self, set_id: int) -> bool:
+        """Delete an assessment set"""
+        logger.info(f"Deleting assessment set {set_id}")
+
+        with self.uow:
+            assessment_set = self.uow.db.get(AssessmentSet, set_id)
             if not assessment_set:
+                return False
+
+            # Check if set is used in any assessments
+            assessments_using_set = (
+                self.uow.db.execute(
+                    select(LocationSetAssessment).where(
+                        LocationSetAssessment.set_id == set_id
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+            if assessments_using_set:
                 raise HTTPException(
-                    status_code=404, detail="Assessment set not found"
+                    400,
+                    f"Cannot delete assessment set: used in {len(assessments_using_set)} assessments",
                 )
 
-            # Get criteria with full details for the frontend
+            # Delete associated criteria mappings first
+            criteria_mappings = (
+                self.uow.db.execute(
+                    select(SetCriteria).where(SetCriteria.set_id == set_id)
+                )
+                .scalars()
+                .all()
+            )
+            for mapping in criteria_mappings:
+                self.uow.db.delete(mapping)
+
+            self.uow.db.delete(assessment_set)
+            self.uow.commit()
+            cache.invalidate("assessment_sets:list")  # Clear cache
+            cache.invalidate(f"assessment_sets:{set_id}")  # Clear specific cache
+            return True
+
+    # @cache.cacheable(
+    #     lambda self, set_id: f"assessment_sets:{set_id}:criteria", ttl=3600
+    # )  # Cache for 1 hour - temporarily disabled
+    def get_set_criteria(self, set_id: int):
+        """Get all criteria for a specific assessment set"""
+        with self.uow:
             query = (
                 select(SetCriteria, AccessibilityCriteria)
                 .join(
@@ -786,77 +544,104 @@ class AssessmentService:
                 .where(SetCriteria.set_id == set_id)
                 .order_by(SetCriteria.sequence)
             )
-            result = self.uow.db.execute(query)
+            results = self.uow.db.execute(query).all()
 
-            criteria = []
-            for set_criterion, criterion in result:
-                criteria.append(
-                    {
-                        "criterion_id": criterion.criterion_id,
-                        "criterion_name": criterion.criterion_name,
-                        "code": criterion.code,
-                        "description": criterion.description,
-                        "max_score": criterion.max_score,
-                        "unit": criterion.unit,
-                        "sequence": set_criterion.sequence,
-                        "set_id": set_criterion.set_id,
-                        "created_at": criterion.created_at,
-                    }
+            criteria_list = []
+            for set_criteria, criteria in results:
+                criteria_data = {
+                    "criterion_id": criteria.criterion_id,
+                    "criterion_name": criteria.criterion_name,
+                    "description": criteria.description,
+                    "code": criteria.code,
+                    "max_score": criteria.max_score,
+                    "unit": criteria.unit,
+                    "sequence": set_criteria.sequence,
+                    "created_at": criteria.created_at,
+                }
+                criteria_list.append(criteria_data)
+
+            return criteria_list
+
+    def remove_criterion_from_set(self, set_id: int, criterion_id: int) -> bool:
+        """Remove a criterion from an assessment set"""
+        logger.info(
+            f"Removing criterion {criterion_id} from set {set_id}"
+        )
+
+        with self.uow:
+            mapping = (
+                self.uow.db.execute(
+                    select(SetCriteria).where(
+                        SetCriteria.set_id == set_id,
+                        SetCriteria.criterion_id == criterion_id,
+                    )
                 )
+                .scalar_one_or_none()
+            )
 
-            return criteria
+            if not mapping:
+                return False
+
+            self.uow.db.delete(mapping)
+            self.uow.commit()
+            cache.invalidate(f"assessment_sets:{set_id}:criteria")  # Clear cache
+            return True
 
     def add_criterion_to_set(
         self, set_id: int, data: SetCriteriaCreate
     ) -> SetCriteria:
-        """Add a criterion to an assessment set with sequence number"""
+        """Add or update a criterion in an assessment set"""
+        logger.info(
+            f"Adding/updating criterion {data.criterion_id} in set {set_id}"
+        )
+
         with self.uow:
-            # Verify the set and criterion exist
-            assessment_set = self.get_assessment_set(set_id)
-            if not assessment_set:
-                raise HTTPException(
-                    status_code=404, detail="Assessment set not found"
-                )
-
-            criterion = self.get_criterion(data.criterion_id)
-            if not criterion:
-                raise HTTPException(
-                    status_code=404, detail="Criterion not found"
-                )
-
-            # Check if this criterion is already in the set
+            # Check if mapping already exists
             existing = (
-                self.uow.db.query(SetCriteria)
-                .filter(
-                    SetCriteria.set_id == set_id,
-                    SetCriteria.criterion_id == data.criterion_id,
+                self.uow.db.execute(
+                    select(SetCriteria).where(
+                        SetCriteria.set_id == set_id,
+                        SetCriteria.criterion_id == data.criterion_id,
+                    )
                 )
-                .first()
+                .scalar_one_or_none()
             )
 
             if existing:
-                # Update the sequence if it already exists
-                existing.sequence = data.sequence
-                self.uow.commit()
-                # Invalidate the set criteria cache
-                cache.invalidate(f"assessment_sets:{set_id}")
-                cache.invalidate(f"assessment_sets:{set_id}:criteria")
-                return existing
+                # Update existing mapping instead of throwing error
+                logger.info(f"Updating existing criterion {data.criterion_id} in set {set_id}")
+                existing.sequence = data.sequence or existing.sequence
+                set_criteria = existing
+            else:
+                # Create new mapping
+                logger.info(f"Creating new criterion {data.criterion_id} in set {set_id}")
+                # Get next order index if no sequence provided
+                if not data.sequence:
+                    max_order = (
+                        self.uow.db.execute(
+                            select(func.max(SetCriteria.sequence)).where(
+                                SetCriteria.set_id == set_id
+                            )
+                        )
+                        .scalar()
+                        or 0
+                    )
+                    sequence = max_order + 1
+                else:
+                    sequence = data.sequence
 
-            # Add new criterion to set
-            set_criterion = SetCriteria(
-                set_id=set_id,
-                criterion_id=data.criterion_id,
-                sequence=data.sequence,
-            )
-            self.uow.db.add(set_criterion)
+                set_criteria = SetCriteria(
+                    set_id=set_id,
+                    criterion_id=data.criterion_id,
+                    sequence=sequence,
+                )
+                self.uow.db.add(set_criteria)
+
             self.uow.commit()
-            # Invalidate the set criteria cache
-            cache.invalidate(f"assessment_sets:{set_id}")
-            cache.invalidate(f"assessment_sets:{set_id}:criteria")
-            return set_criterion
+            cache.invalidate(f"assessment_sets:{set_id}:criteria")  # Clear cache
+            return set_criteria
 
-    # Location Assessment Management
+    # -------------------------------- direct assessment creation -------------
     def create_location_assessment_direct(
         self,
         location_id: UUID,
@@ -865,307 +650,161 @@ class AssessmentService:
         notes: Optional[str],
         criterion_ids: Optional[List[int]] = None,
     ) -> LocationSetAssessment:
-        try:
-            with self.uow:
-                # a) Verify the set exists
-                if not self.get_assessment_set(set_id):
-                    raise HTTPException(404, "Assessment set not found")
+        """Create a location assessment directly with specified criteria"""
+        logger.info(
+            f"Creating direct assessment for location {location_id} by {assessor_id}"
+        )
 
-                # Check if an assessment already exists for this location and set
-                existing_assessment = (
-                    self.uow.db.query(LocationSetAssessment)
-                    .filter(
-                        LocationSetAssessment.location_id == str(location_id),
-                        LocationSetAssessment.set_id == set_id,
-                        LocationSetAssessment.status.in_([
-                            AssessmentStatus.pending,
-                            AssessmentStatus.draft,
-                            AssessmentStatus.submitted
-                        ])
-                    )
-                    .first()
-                )
-                
-                if existing_assessment:
-                    raise HTTPException(
-                        400, 
-                        f"An active assessment already exists for this location and assessment set. "
-                        f"Assessment ID: {existing_assessment.assessment_id}"
-                    )
+        with self.uow:
+            # Create the main assessment
+            assessment = LocationSetAssessment(
+                location_id=str(location_id),
+                set_id=set_id,
+                assessor_id=str(assessor_id),
+                status=AssessmentStatus.draft,
+                notes=notes,
+            )
+            self.uow.db.add(assessment)
+            self.uow.db.flush()  # Get the ID
 
-                # b) Create header
-                hdr = LocationSetAssessment(
-                    location_id=str(location_id),
-                    set_id=set_id,
-                    assessor_id=str(assessor_id),
-                    notes=notes,
-                    status=AssessmentStatus.pending,
-                    assessed_at=dt.utcnow(),
-                )
-                self.uow.db.add(hdr)
-                self.uow.db.flush()  # so hdr.assessment_id is populated
-
-                # c) Seed detail rows - only for selected criteria or all if none
-                # specified
-                if criterion_ids:
-                    # Validate that all specified criteria exist in the set
-                    set_criteria = (
-                        self.uow.db.query(SetCriteria)
-                        .filter(SetCriteria.set_id == set_id)
-                        .all()
-                    )
-                    valid_criterion_ids = {sc.criterion_id for sc in set_criteria}
-
-                    # Check if all requested criteria are valid for this set
-                    invalid_criteria = set(criterion_ids) - valid_criterion_ids
-                    if invalid_criteria:
-                        raise HTTPException(
-                            400, f"Criteria {
-                                list(invalid_criteria)} are not part of assessment set {set_id}", )
-
-                    # Create details only for selected criteria
-                    selected_criteria = [
-                        sc
-                        for sc in set_criteria
-                        if sc.criterion_id in criterion_ids
-                    ]
-                else:
-                    # Create details for all criteria in the set (original
-                    # behavior)
-                    selected_criteria = (
-                        self.uow.db.query(SetCriteria)
-                        .filter(SetCriteria.set_id == set_id)
-                        .all()
-                    )
-
-                for crit in selected_criteria:
-                    detail = LocationAssessment(
-                        location_set_assessment_id=hdr.assessment_id,
-                        criterion_id=crit.criterion_id,
-                        score=0,
-                        condition=None,
-                        comment=None,
-                    )
-                    self.uow.db.add(detail)
-
-                self.uow.commit()
-                self.uow.db.refresh(hdr)
-
-                return hdr
-        
-        except IntegrityError as e:
-            # Handle database constraint violations
-            if "duplicate key value violates unique constraint" in str(e):
-                raise HTTPException(
-                    400, 
-                    "Assessment creation failed due to a duplicate key constraint. "
-                    "Please try again or contact support if the issue persists."
+            # Get criteria to include
+            if criterion_ids:
+                criteria_query = select(AccessibilityCriteria).where(
+                    AccessibilityCriteria.criterion_id.in_(criterion_ids)
                 )
             else:
-                raise HTTPException(
-                    400, 
-                    f"Database integrity error: {str(e)}"
+                # Get all criteria from the set
+                criteria_query = (
+                    select(AccessibilityCriteria)
+                    .join(SetCriteria)
+                    .where(SetCriteria.set_id == set_id)
+                    .order_by(SetCriteria.sequence)
                 )
-        except HTTPException:
-            # Re-raise HTTP exceptions as-is
-            raise
-        except Exception as e:
-            # Handle other unexpected errors
-            raise HTTPException(
-                500, 
-                f"Unexpected error creating assessment: {str(e)}"
+
+            criteria = self.uow.db.execute(criteria_query).scalars().all()
+
+            # Create assessment details for each criterion
+            for criterion in criteria:
+                detail = LocationAssessment(
+                    location_set_assessment_id=assessment.assessment_id,
+                    criterion_id=criterion.criterion_id,
+                    score=0,  # Default score instead of None
+                    comment=None,  # Use 'comment' instead of 'notes'
+                    # Removed is_compliant as it doesn't exist
+                )
+                self.uow.db.add(detail)
+
+            self.uow.commit()
+            logger.info(
+                f"Created assessment {assessment.assessment_id} with {len(criteria)} criteria"
             )
+            return assessment
 
     def list_location_assessments(
         self, location_id: UUID
     ) -> List[LocationSetAssessment]:
-        """Get all assessments for a specific location"""
-        query = (
-            select(LocationSetAssessment)
-            .options(
-                joinedload(LocationSetAssessment.location),
-                joinedload(LocationSetAssessment.assessment_set),
-                # Load assessor with profile
-                joinedload(LocationSetAssessment.assessor).joinedload(
-                    User.profile
-                ),
-                # Load verifier with profile
-                joinedload(LocationSetAssessment.verifier).joinedload(
-                    User.profile
-                ),
+        """List all assessments for a specific location"""
+        with self.uow:
+            query = (
+                select(LocationSetAssessment)
+                .options(
+                    joinedload(LocationSetAssessment.assessment_set),
+                )
+                .where(LocationSetAssessment.location_id == str(location_id))
+                .order_by(LocationSetAssessment.assessed_at.desc())
             )
-            .where(LocationSetAssessment.location_id == str(location_id))
-            .order_by(LocationSetAssessment.assessed_at.desc())
-        )
-
-        result = self.uow.db.execute(query)
-        return list(result.unique().scalars().all())
+            return self.uow.db.execute(query).unique().scalars().all()
 
     def add_assessment_detail(
         self, assessment_id: int, data: LocationAssessmentCreate
     ) -> LocationAssessment:
-        """Add a detail (criterion score) to an assessment"""
+        """Add a new assessment detail to an existing assessment"""
+        logger.info(
+            f"Adding assessment detail for assessment {assessment_id}, criterion {data.criterion_id}"
+        )
+
         with self.uow:
-            # Verify the assessment exists
-            assessment = self.get_assessment(assessment_id)
-            if not assessment:
+            # Verify assessment exists and is in draft status
+            assessment = self._get_or_404(assessment_id)
+            if assessment.status not in [AssessmentStatus.draft, "pending"]:
                 raise HTTPException(
-                    status_code=404, detail="Assessment not found"
+                    400, "Can only add details to draft or pending assessments"
                 )
 
-            # Verify the criterion exists
-            criterion = self.get_criterion(data.criterion_id)
-            if not criterion:
-                raise HTTPException(
-                    status_code=404, detail="Criterion not found"
-                )
-
-            # Check if criterion is in the assessment set
-            set_criterion = (
-                self.uow.db.query(SetCriteria)
-                .filter(
-                    SetCriteria.set_id == assessment.set_id,
-                    SetCriteria.criterion_id == data.criterion_id,
-                )
-                .first()
-            )
-
-            if not set_criterion:
-                raise HTTPException(
-                    status_code=400, detail=f"Criterion {
-                        data.criterion_id} is not part of assessment set {
-                        assessment.set_id}", )
-
-            # Check if this criterion is already scored
+            # Check if detail already exists for this criterion
             existing = (
-                self.uow.db.query(LocationAssessment)
-                .filter(
-                    LocationAssessment.location_set_assessment_id
-                    == assessment_id,
-                    LocationAssessment.criterion_id == data.criterion_id,
+                self.uow.db.execute(
+                    select(LocationAssessment).where(
+                        LocationAssessment.location_set_assessment_id
+                        == assessment_id,
+                        LocationAssessment.criterion_id == data.criterion_id,
+                    )
                 )
-                .first()
+                .scalar_one_or_none()
             )
 
             if existing:
-                # Update the score if it already exists
+                # Update existing detail
                 existing.score = data.score
-                existing.condition = data.condition
-                existing.comment = data.comment
-                self.uow.commit()
-                existing.criterion = criterion  # Attach criterion info
-                return existing
+                existing.comment = data.comment  # Use 'comment' instead of 'notes'
+                existing.condition = data.condition  # Use existing field
+                # Removed is_compliant and assessor_notes as they don't exist
+                detail = existing
+            else:
+                # Create new detail
+                detail = LocationAssessment(
+                    location_set_assessment_id=assessment_id,
+                    criterion_id=data.criterion_id,
+                    score=data.score,
+                    comment=data.comment,  # Use 'comment' instead of 'notes'
+                    condition=data.condition,  # Use existing field
+                    # Removed is_compliant and assessor_notes as they don't exist
+                )
+                self.uow.db.add(detail)
 
-            # Add new score
-            detail = LocationAssessment(
-                location_set_assessment_id=assessment_id,
-                criterion_id=data.criterion_id,
-                score=data.score,
-                condition=data.condition,
-                comment=data.comment,
-            )
-            self.uow.db.add(detail)
             self.uow.commit()
-
-            # Attach criterion info for the response
-            detail.criterion = criterion
             return detail
 
     def submit_assessment(self, assessment_id: int) -> LocationSetAssessment:
-        """Submit an assessment for verification"""
+        """Submit an assessment for review"""
+        logger.info(f"Submitting assessment {assessment_id}")
+
         with self.uow:
-            assessment = self.get_assessment(assessment_id)
-            if not assessment:
+            assessment = self._get_or_404(assessment_id)
+
+            if assessment.status != AssessmentStatus.draft:
                 raise HTTPException(
-                    status_code=404, detail="Assessment not found"
+                    400, "Only draft assessments can be submitted"
                 )
 
-            # Get the actual details that exist for this assessment (not all
-            # criteria in the set)
-            existing_details = (
-                self.uow.db.query(LocationAssessment)
-                .filter(
-                    LocationAssessment.location_set_assessment_id
-                    == assessment_id
+            # Check if assessment has any details
+            details_count = (
+                self.uow.db.execute(
+                    select(func.count(LocationAssessment.assessment_detail_id)).where(
+                        LocationAssessment.location_set_assessment_id
+                        == assessment_id
+                    )
                 )
-                .all()
+                .scalar()
+                or 0
             )
 
-            if not existing_details:
+            if details_count == 0:
                 raise HTTPException(
-                    status_code=400,
-                    detail="Assessment has no criteria to submit.",
+                    400, "Cannot submit assessment without any details"
                 )
 
-            # Check that all existing criteria have been scored
-            unscored_details = [d for d in existing_details if d.score == 0]
-            if unscored_details:
-                criterion_names = []
-                for detail in unscored_details:
-                    criterion = self.uow.db.get(
-                        AccessibilityCriteria, detail.criterion_id
-                    )
-                    criterion_names.append(
-                        criterion.criterion_name
-                        if criterion
-                        else f"Criterion {detail.criterion_id}"
-                    )
+            # Calculate overall score
+            self._calculate_and_set_overall_score(assessment_id)
 
-                raise HTTPException(
-                    status_code=400, detail=f"Assessment is incomplete. Please score: {
-                        ', '.join(criterion_names)}", )
-
-            # Check if each detail has at least one image
-            details_without_images = []
-            for detail in existing_details:
-                image_count = (
-                    self.uow.db.query(func.count(AssessmentImage.image_id))
-                    .filter(
-                        AssessmentImage.assessment_detail_id
-                        == detail.assessment_detail_id
-                    )
-                    .scalar()
-                )
-                if image_count == 0:
-                    criterion = self.uow.db.get(
-                        AccessibilityCriteria, detail.criterion_id
-                    )
-                    criterion_name = (
-                        criterion.criterion_name
-                        if criterion
-                        else f"Criterion {detail.criterion_id}"
-                    )
-                    details_without_images.append(criterion_name)
-
-            if details_without_images:
-                criteria_list = ", ".join(details_without_images)
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Each criterion must have at least one image. Missing images for: {criteria_list}",
-                )
-
-            # Calculate overall score based on included criteria only
-            total_score = sum(detail.score for detail in existing_details)
-            total_possible = 0
-
-            for detail in existing_details:
-                criterion = self.uow.db.get(
-                    AccessibilityCriteria, detail.criterion_id
-                )
-                if criterion:
-                    total_possible += criterion.max_score
-
-            if total_possible == 0:
-                total_possible = 1  # Avoid division by zero
-
-            # Update assessment status and score
-            assessment.status = "submitted"
-            assessment.overall_score = (
-                total_score / total_possible
-            ) * 10  # Scale to 0-10
+            # Update status
+            assessment.status = AssessmentStatus.submitted
             assessment.submitted_at = dt.utcnow()
-            self.uow.commit()
 
+            self.uow.commit()
+            logger.info(
+                f"Assessment {assessment_id} submitted with score {assessment.overall_score}"
+            )
             return assessment
 
     def verify_assessment(
@@ -1174,134 +813,104 @@ class AssessmentService:
         verifier_id: UUID,
         data: AssessmentVerificationCreate,
     ) -> LocationSetAssessment:
-        """Verify an assessment (admin/verifier only)"""
+        """Verify a submitted assessment"""
+        logger.info(
+            f"Verifying assessment {assessment_id} by {verifier_id}"
+        )
+
         with self.uow:
-            assessment = self.get_assessment(assessment_id)
-            if not assessment:
+            assessment = self._get_or_404(assessment_id)
+
+            if assessment.status != AssessmentStatus.submitted:
                 raise HTTPException(
-                    status_code=404, detail="Assessment not found"
+                    400, "Only submitted assessments can be verified"
                 )
 
-            if assessment.status != "submitted":
-                raise HTTPException(
-                    status_code=400, detail=f"Cannot verify assessment with status '{
-                        assessment.status}'. Assessment must be submitted.", )
-
-            # Update embedded verification fields directly on the assessment
-            assessment.verifier_id = str(verifier_id)
-            assessment.is_verified = data.is_verified
-            assessment.verified_comment = data.comment
+            # Update assessment
+            assessment.status = AssessmentStatus.verified
             assessment.verified_at = dt.utcnow()
+            assessment.verifier_id = str(verifier_id)
 
-            # Update assessment status
-            assessment.status = "verified" if data.is_verified else "rejected"
-
-            if not data.is_verified and hasattr(data, "rejection_reason"):
-                assessment.rejection_reason = getattr(data, "rejection_reason")
+            # Add admin comments to individual details if provided
+            if data.detail_comments:
+                for detail_id, comment in data.detail_comments.items():
+                    detail = self.uow.db.get(LocationAssessment, detail_id)
+                    if (
+                        detail
+                        and detail.location_set_assessment_id == assessment_id
+                    ):
+                        detail.admin_comments = comment
 
             self.uow.commit()
-
-            # Update location's accessibility_score if assessment was verified
-            if data.is_verified:
-                from app.services.location_service import LocationService
-
-                location_service = LocationService(self.uow)
-                # Handle both string and UUID types for location_id
-                location_id = assessment.location_id
-                if isinstance(location_id, str):
-                    location_id = UUID(location_id)
-                location_service.update_accessibility_score(location_id)
-
+            logger.info(f"Assessment {assessment_id} verified successfully")
             return assessment
 
     def get_available_locations(self) -> List[dict]:
-        """Get a list of available locations for assessment creation dropdown"""
+        """Get locations that can have assessments"""
         with self.uow:
-            # Use a simple query to get location_id and name for dropdown
-            locations = self.uow.db.query(
-                self.uow.locations.model.location_id,
-                self.uow.locations.model.location_name,
-            ).all()
-
-            # Format for dropdown use
-            return [
-                {"id": str(loc.location_id), "name": loc.location_name}
-                for loc in locations
-            ]
+            # Query all locations regardless of status
+            query = text("""
+                SELECT location_id, location_name, address, status
+                FROM locations 
+                ORDER BY location_name
+            """)
+            result = self.uow.db.execute(query)
+            # Map the database field names to what the frontend expects
+            locations = []
+            for row in result:
+                locations.append({
+                    "id": row.location_id,
+                    "name": row.location_name,
+                    "address": row.address,
+                    "status": row.status,  # Include status so frontend can show it if needed
+                    "category": None  # We can add category later if needed
+                })
+            return locations
 
     def fix_assessment_score(
         self, assessment_id: int
     ) -> LocationSetAssessment:
-        """Fix assessment that bypassed submission workflow - recalculate score and set proper timestamps"""
+        """Recalculate and fix the overall score for an assessment"""
+        logger.info(f"Fixing score for assessment {assessment_id}")
+        
         with self.uow:
             assessment = self._get_or_404(assessment_id)
-
-            # Calculate overall score based on current criterion scores
-            total_score = (
-                self.uow.db.query(func.sum(LocationAssessment.score))
-                .filter(
-                    LocationAssessment.location_set_assessment_id
-                    == assessment_id
-                )
-                .scalar()
-                or 0
+            
+            # Get all assessment details
+            details_query = select(LocationAssessment).where(
+                LocationAssessment.location_set_assessment_id == assessment_id
             )
-
-            total_possible = (
-                self.uow.db.query(func.sum(AccessibilityCriteria.max_score))
-                .join(
-                    LocationAssessment,
-                    LocationAssessment.criterion_id
-                    == AccessibilityCriteria.criterion_id,
-                )
-                .filter(
-                    LocationAssessment.location_set_assessment_id
-                    == assessment_id
-                )
-                .scalar()
-                or 1  # Avoid division by zero
-            )
-
-            # Update assessment with calculated score
-            assessment.overall_score = (
-                total_score / total_possible
-            ) * 10  # Scale to 0-10
-
-            # If the assessment is verified but missing timestamps, set them
-            if assessment.status == "verified" and not assessment.verified_at:
-                assessment.verified_at = dt.utcnow()
-
-            if (
-                assessment.status in ["submitted", "verified"]
-                and not assessment.submitted_at
-            ):
-                assessment.submitted_at = dt.utcnow()
-
+            details = self.uow.db.execute(details_query).scalars().all()
+            
+            if not details:
+                logger.warning(f"No details found for assessment {assessment_id}")
+                assessment.overall_score = 0.0
+            else:
+                # Calculate new score
+                scores = [detail.score for detail in details if detail.score is not None]
+                if scores:
+                    new_score = round(sum(scores) / len(scores), 2)
+                    assessment.overall_score = new_score
+                    logger.info(f"Updated score for assessment {assessment_id}: {new_score}")
+                else:
+                    assessment.overall_score = 0.0
+                    logger.info(f"No valid scores found, set to 0.0 for assessment {assessment_id}")
+            
             self.uow.commit()
-
-            # Update location's accessibility_score if this is a verified
-            # assessment
-            if assessment.status == "verified":
-                from app.services.location_service import LocationService
-
-                location_service = LocationService(self.uow)
-                # Handle both string and UUID types for location_id
-                location_id = assessment.location_id
-                if isinstance(location_id, str):
-                    location_id = UUID(location_id)
-                location_service.update_accessibility_score(location_id)
-
             return assessment
 
     def fix_all_null_scores(self) -> List[dict]:
         """Fix all assessments that have null overall_score"""
+        logger.info("Starting to fix all assessments with null scores")
+        
         with self.uow:
             # Find all assessments with null overall_score
-            null_score_assessments = (
-                self.uow.db.query(LocationSetAssessment)
-                .filter(LocationSetAssessment.overall_score.is_(None))
-                .all()
+            null_score_query = select(LocationSetAssessment).where(
+                LocationSetAssessment.overall_score.is_(None)
             )
+            null_score_assessments = self.uow.db.execute(null_score_query).scalars().all()
+            
+            logger.info(f"Found {len(null_score_assessments)} assessments with null scores")
             
             fixed_assessments = []
             for assessment in null_score_assessments:
@@ -1322,3 +931,71 @@ class AssessmentService:
                 logger.info(f"Fixed {len(fixed_assessments)} assessments with null scores")
             
             return fixed_assessments
+
+    def update_set_criteria(self, set_id: int, criterion_ids: List[int]) -> List[SetCriteria]:
+        """Update all criteria for an assessment set (replaces existing criteria)"""
+        logger.info(f"Updating criteria for assessment set {set_id}")
+        
+        with self.uow:
+            # Remove existing criteria mappings
+            existing_mappings = (
+                self.uow.db.execute(
+                    select(SetCriteria).where(SetCriteria.set_id == set_id)
+                )
+                .scalars()
+                .all()
+            )
+            
+            for mapping in existing_mappings:
+                self.uow.db.delete(mapping)
+            
+            # Add new criteria mappings
+            new_mappings = []
+            for index, criterion_id in enumerate(criterion_ids):
+                set_criteria = SetCriteria(
+                    set_id=set_id,
+                    criterion_id=criterion_id,
+                    sequence=index + 1,
+                )
+                self.uow.db.add(set_criteria)
+                new_mappings.append(set_criteria)
+            
+            self.uow.commit()
+            cache.invalidate(f"assessment_sets:{set_id}:criteria")  # Clear cache
+            logger.info(f"Updated {len(new_mappings)} criteria for set {set_id}")
+            return new_mappings
+
+    def update_criteria_bulk(self, set_id: int, criteria_data: List[dict]) -> List[SetCriteria]:
+        """Update criteria for an assessment set with detailed data"""
+        logger.info(f"Bulk updating criteria for assessment set {set_id}")
+        
+        with self.uow:
+            # Remove existing criteria mappings
+            existing_mappings = (
+                self.uow.db.execute(
+                    select(SetCriteria).where(SetCriteria.set_id == set_id)
+                )
+                .scalars()
+                .all()
+            )
+            
+            for mapping in existing_mappings:
+                self.uow.db.delete(mapping)
+            
+            # Add new criteria mappings
+            new_mappings = []
+            for index, criterion_data in enumerate(criteria_data):
+                set_criteria = SetCriteria(
+                    set_id=set_id,
+                    criterion_id=criterion_data.get('criterion_id'),
+                    sequence=criterion_data.get('sequence', index + 1),
+                )
+                self.uow.db.add(set_criteria)
+                new_mappings.append(set_criteria)
+            
+            self.uow.commit()
+            cache.invalidate(f"assessment_sets:{set_id}:criteria")  # Clear cache
+            logger.info(f"Updated {len(new_mappings)} criteria for set {set_id}")
+            return new_mappings
+
+

@@ -39,6 +39,9 @@ class AssessmentSetRouter:
         self.router.post(
             "/{set_id}/criteria", status_code=status.HTTP_201_CREATED
         )(self._add_criterion_to_set)
+        self.router.put(
+            "/{set_id}/criteria", status_code=status.HTTP_200_OK
+        )(self._update_criteria_bulk)
 
     # ------------------------------------------------------------------
     async def _list_sets(
@@ -157,6 +160,16 @@ class AssessmentSetRouter:
                 status_code=404, detail="Assessment set not found"
             )
         return updated_set
+
+    async def _update_criteria_bulk(
+        self,
+        set_id: int,
+        criteria: list[AssessmentSetSchema.Criterion],
+        uow: UnitOfWork = Depends(get_uow),
+        current: User = Depends(auth_manager.get_current_user),
+    ):
+        logger.info(f"Updating criteria for set {set_id}")
+        return AssessmentService(uow).update_criteria_bulk(set_id, criteria)
 
 
 assessment_set_router = AssessmentSetRouter().router

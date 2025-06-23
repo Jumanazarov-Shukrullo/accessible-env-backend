@@ -172,7 +172,13 @@ class LocationRouter:
         location = LocationService(uow).get_location_detail(str(location_id))
         if not location:
             raise HTTPException(status_code=404, detail="Location not found")
-        return getattr(location, 'images', [])
+        
+        # Handle both dict and Pydantic model responses
+        if isinstance(location, dict):
+            return location.get('images', [])
+        else:
+            # Pydantic model
+            return location.images if hasattr(location, 'images') else []
 
     async def _upload_location_images(
         self,
