@@ -128,15 +128,6 @@ APP_BACKEND_URL=http://localhost:8000
 APP_ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
-### 3. Database Setup
-```bash
-# Run migrations
-alembic upgrade head
-
-# Optional: Load sample data
-python -m app.scripts.seed_data
-```
-
 ### 4. Start the Server
 ```bash
 # Development server
@@ -262,7 +253,7 @@ backend/
 We'd love your help making cities more accessible! Here's how to contribute:
 
 ### 🐛 Found a Bug?
-1. Check if it's already reported in [Issues](https://github.com/yourusername/accessibility-backend/issues)
+1. Check if it's already reported in [Issues](https://github.com/Jumanazarov-Shukrullo/accessibility-backend/issues)
 2. If not, create a new issue with:
    - Clear description of the problem
    - Steps to reproduce
@@ -270,7 +261,7 @@ We'd love your help making cities more accessible! Here's how to contribute:
    - Your environment details
 
 ### 💡 Have an Idea?
-1. Open a [Discussion](https://github.com/yourusername/accessibility-backend/discussions) first
+1. Open a [Discussion](https://github.com/Jumanazarov-Shukrullo/accessibility-backend/discussions) first
 2. We'll help you refine the idea
 3. Create an issue if we decide to move forward
 
