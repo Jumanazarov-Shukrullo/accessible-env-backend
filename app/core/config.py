@@ -64,7 +64,7 @@ class SMTPSettings(BaseSettings):
 
 class AppSettings(BaseSettings):
     debug: bool = Field(False)
-    allowed_hosts: List[str] = Field(default_factory=list)
+    allowed_hosts: str = Field("http://localhost:3000,http://localhost:8000")
     session_secret_key: str = Field(...)
     backend_url: str = Field(...)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -76,14 +76,23 @@ class AppSettings(BaseSettings):
 
     @classmethod
     def _split_allowed_hosts(cls, v: str) -> List[str]:
-        return [host.strip() for host in v.split(",") if host.strip()]
+        if not v or not v.strip():
+            return []
+        hosts = []
+        for host in v.split(","):
+            host = host.strip()
+            if host and (host.startswith("http://") or host.startswith("https://")):
+                hosts.append(host)
+            elif host:
+                print(f"Skipping invalid host format: {host}")
+        return hosts
 
-    @field_validator("allowed_hosts", mode="before")
-    @classmethod
-    def split_allowed_hosts(cls, v):
-        if isinstance(v, str):
-            return cls._split_allowed_hosts(v)
-        return v
+    @property
+    def allowed_hosts_list(self) -> List[str]:
+        """Convert allowed_hosts string to list."""
+        if not self.allowed_hosts:
+            return ["http://localhost:3000", "http://localhost:8000"]
+        return self._split_allowed_hosts(self.allowed_hosts)
 
     class Config:
         env_prefix = "APP_"
