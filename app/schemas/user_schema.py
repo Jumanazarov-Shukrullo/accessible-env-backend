@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, validator
 
@@ -34,6 +35,12 @@ class UserCore(UserBase):
     role_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+
+    @validator("user_id", pre=True)
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True
@@ -79,6 +86,12 @@ class UserProfile(UserProfileBase):
     created_at: datetime
     updated_at: datetime
 
+    @validator("user_id", pre=True)
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
     class Config:
         from_attributes = True
 
@@ -102,6 +115,12 @@ class UserSecurity(UserSecurityBase):
     password_changed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
+    @validator("user_id", pre=True)
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True
@@ -146,6 +165,12 @@ class UserListResponse(BaseModel):
     role_name: Optional[str] = None
     last_login_at: Optional[datetime] = None
     created_at: datetime
+
+    @validator("user_id", pre=True)
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True
@@ -218,6 +243,12 @@ class MinimalUserResponse(BaseModel):
     user_id: str
     username: str
     full_name: Optional[str] = None
+
+    @validator("user_id", pre=True)
+    def convert_uuid_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
 
     class Config:
         from_attributes = True
