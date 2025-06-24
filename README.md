@@ -207,16 +207,6 @@ pytest tests/e2e/
 
 ## 🐳 Docker Deployment
 
-### Development with Docker Compose
-```bash
-# Start all services (includes PostgreSQL, Redis, MinIO)
-docker-compose up -d
-
-# View logs
-docker-compose logs -f backend
-```
-
-### Production Docker
 ```bash
 # Build image
 docker build -t accessibility-backend .
@@ -253,8 +243,7 @@ backend/
 │   └── utils/                   # Utility functions
 ├── migrations/                  # Database migrations
 ├── requirements.txt             # Python dependencies
-├── Dockerfile                   # Container configuration
-└── docker-compose.yml          # Local development setup
+└── Dockerfile                   # Container configuration
 ```
 
 ## 🤝 Contributing
