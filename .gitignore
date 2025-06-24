@@ -9,3 +9,4 @@ archived_files/
 scripts/
 diagrams/
 .venv/
+.sort.cfg
