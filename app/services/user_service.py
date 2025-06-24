@@ -519,7 +519,7 @@ class UserService:
         self.domain_service.validate_password_strength(new_password)
 
         # Update password
-        current_user.password_hash = security_manager.hash_password(
+        current_user.password_hash = security_manager.get_password_hash(
             new_password
         )
         self.repo.update(current_user)
