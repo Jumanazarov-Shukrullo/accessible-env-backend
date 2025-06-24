@@ -563,16 +563,29 @@ class UserService:
             self.uow.db.add(user)
             self.uow.db.flush()  # Get user_id
 
+            # Construct full_name from name components
+            name_parts = []
+            if user_in.first_name:
+                name_parts.append(user_in.first_name.strip())
+            if user_in.middle_name:
+                name_parts.append(user_in.middle_name.strip())
+            if user_in.surname:
+                name_parts.append(user_in.surname.strip())
+            full_name = " ".join(name_parts) if name_parts else None
+
+            # Clean phone_number - convert empty string to None to avoid constraint violation
+            clean_phone_number = user_in.phone_number.strip() if user_in.phone_number else None
+            if clean_phone_number == "":
+                clean_phone_number = None
+
             # Create user profile
             profile = UserProfile(
                 user_id=user.user_id,
                 first_name=user_in.first_name,
                 surname=user_in.surname,
                 middle_name=user_in.middle_name,
-                full_name=f"{
-                    user_in.first_name or ''} {
-                    user_in.surname or ''}".strip() or None,
-                phone_number=user_in.phone_number,
+                full_name=full_name,
+                phone_number=clean_phone_number,
                 language_preference=user_in.language_preference,
             )
             self.uow.db.add(profile)

@@ -318,7 +318,7 @@ class UserRouter:
             minutes=settings.auth.access_token_expires
         )
         access_token = security_manager.create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
+            data={"sub": str(user.user_id), "username": user.username}, expires_delta=access_token_expires
         )
         logger.info(
             f"LOGIN DEBUG - Login successful for user: {user.username}"

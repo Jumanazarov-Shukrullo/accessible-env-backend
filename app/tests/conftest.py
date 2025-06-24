@@ -266,7 +266,7 @@ def sample_location(
 def auth_headers(sample_user: User) -> dict:
     """Create authentication headers for testing."""
     token = security_manager.create_access_token(
-        data={"sub": sample_user.username, "user_id": sample_user.user_id}
+        data={"sub": str(sample_user.user_id), "username": sample_user.username}
     )
     return {"Authorization": f"Bearer {token}"}
 
@@ -275,7 +275,7 @@ def auth_headers(sample_user: User) -> dict:
 def admin_auth_headers(admin_user: User) -> dict:
     """Create admin authentication headers for testing."""
     token = security_manager.create_access_token(
-        data={"sub": admin_user.username, "user_id": admin_user.user_id}
+        data={"sub": str(admin_user.user_id), "username": admin_user.username}
     )
     return {"Authorization": f"Bearer {token}"}
 

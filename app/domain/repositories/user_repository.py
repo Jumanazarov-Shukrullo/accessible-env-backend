@@ -90,6 +90,23 @@ class UserRepository(SQLAlchemyRepository[User, str], IUserRepository):
             for k, v in user_data.items()
             if k in profile_fields and v is not None
         }
+        
+        # Clean phone_number to avoid constraint violation
+        if "phone_number" in profile_data and profile_data["phone_number"] == "":
+            profile_data["phone_number"] = None
+            
+        # Auto-construct full_name if not provided but name components exist
+        if "full_name" not in profile_data or not profile_data["full_name"]:
+            name_parts = []
+            if profile_data.get("first_name"):
+                name_parts.append(profile_data["first_name"].strip())
+            if profile_data.get("middle_name"):
+                name_parts.append(profile_data["middle_name"].strip())
+            if profile_data.get("surname"):
+                name_parts.append(profile_data["surname"].strip())
+            if name_parts:
+                profile_data["full_name"] = " ".join(name_parts)
+                
         if profile_data or any(k in user_data for k in profile_fields):
             from app.models.user_model import UserProfile
 

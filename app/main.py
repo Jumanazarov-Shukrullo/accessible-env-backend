@@ -36,18 +36,34 @@ configure_logging()
 
 app = FastAPI(title="Enterprise FastAPI Application")
 
-# Configure CORS once, using settings.allowed_hosts or localhost fallback
-allowed_origins = settings.allowed_hosts or ["http://localhost:3000"]
+# Configure CORS using settings from .env file
+allowed_origins = []
 
+if settings.allowed_hosts:
+    for host in settings.allowed_hosts:
+        # Ensure proper URL format
+        if host.startswith(("http://", "https://")):
+            # Remove trailing slash if present
+            host = host.rstrip("/")
+            allowed_origins.append(host)
+        else:
+            # Skip invalid entries that don't start with protocol
+            print(f"Skipping invalid origin (missing protocol): {host}")
+
+# Fallback to localhost if no valid origins from settings
+if not allowed_origins:
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000", 
+        "http://127.0.0.1:8000"
+    ]
+    print("Using fallback CORS origins (no valid origins from settings)")
+
+print("CORS allowed origins:", allowed_origins)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://accessible-env-backend-production.up.railway.app",
-        "https://access-front.up.railway.app",
-        "https://accessible-env-frontend-production.up.railway.app",
-        "https://accessenv.uz",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],

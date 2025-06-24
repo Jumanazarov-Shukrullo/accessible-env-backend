@@ -33,14 +33,14 @@ async def get_current_user(
             settings.auth.secret_key,
             algorithms=[settings.auth.algorithm],
         )
-        username: str | None = payload.get("sub")
-        if username is None:
+        user_id: str | None = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
     repo = UserRepository(db)
-    user: User | None = repo.get_by_username(username)
+    user: User | None = repo.get_by_id(user_id)
     if user is None:
         raise credentials_exception
     return user

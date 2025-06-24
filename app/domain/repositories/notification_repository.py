@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain.repositories.base_sqlalchemy import SQLAlchemyRepository
@@ -16,6 +16,13 @@ class NotificationRepository(SQLAlchemyRepository[Notification, UUID]):
             Notification.user_id == str(user_id), Notification.is_read is False
         )
         return self.db.scalars(stmt).all()
+
+    def get_unread_count(self, user_id: UUID) -> int:
+        """Get count of unread notifications for a user."""
+        stmt = select(func.count(Notification.id)).where(
+            Notification.user_id == str(user_id), Notification.is_read is False
+        )
+        return self.db.scalar(stmt) or 0
 
     def mark_read(self, notif: Notification):
         notif.is_read = True
