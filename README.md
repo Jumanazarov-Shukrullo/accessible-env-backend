@@ -308,7 +308,7 @@ We take security seriously:
 - 🌐 **CORS** properly configured
 - 📝 **Audit logging** for sensitive operations
 
-Found a security issue? Please email security@yourdomain.com instead of opening a public issue.
+Found a security issue? Please email shukrullo.jumanazarov@phystech.edu instead of opening a public issue.
 
 ## 📈 Performance
 
@@ -323,13 +323,6 @@ Optimized for production:
 
 Currently supporting:
 - 🇺🇸 English
-- 🇺🇿 Uzbek (Uzbekcha)
-
-Want to add your language? Check out `app/core/translations.py`!
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -338,13 +331,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Contributors** who make this project better
 - **Accessibility advocates** who inspire this work
 - **Community members** who test and provide feedback
-
-## 📞 Support & Community
-
-- 📧 **Email**: support@yourdomain.com
-- 💬 **Discord**: [Join our community](https://discord.gg/yourinvite)
-- 🐦 **Twitter**: [@yourproject](https://twitter.com/yourproject)
-- 📖 **Documentation**: [docs.yourdomain.com](https://docs.yourdomain.com)
 
 ---
 
