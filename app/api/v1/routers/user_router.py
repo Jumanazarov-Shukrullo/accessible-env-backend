@@ -405,7 +405,7 @@ class UserRouter:
         user = service.upsert_google_user(user_info)
 
         access_token = security_manager.create_access_token(
-            data={"sub": user.username}
+            data={"sub": str(user.user_id), "username": user.username}
         )
         return RedirectResponse(
             f"{settings.auth.frontend_base_url}/oauth/callback?access_token={access_token}"
