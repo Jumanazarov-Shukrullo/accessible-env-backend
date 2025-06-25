@@ -48,8 +48,12 @@ class NotificationBase(BaseModel):
         return v
 
 
-class NotificationCreate(NotificationBase):
-    user_id: str
+class NotificationCreate(BaseModel):
+    user_id: Optional[str] = None
+    title: str
+    message: str
+    notification_type: str
+    priority: str = "medium"
     metadata: Optional[Dict] = None
 
 
@@ -64,16 +68,20 @@ class NotificationUpdate(BaseModel):
     metadata: Optional[Dict] = None
 
 
-class NotificationResponse(NotificationBase):
-    id: str
-    user_id: str
-    status: NotificationStatusEnum
+class NotificationResponse(BaseModel):
+    notification_id: str
+    user_id: Optional[str] = None
+    title: str
+    message: str
+    notification_type: str
+    priority: str
     is_read: bool
     created_at: datetime
-    sent_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
-    metadata: Optional[Dict] = None
-    deleted_at: Optional[datetime] = None
+
+    @validator('notification_id', pre=True)
+    def convert_id(cls, v):
+        return str(v)
 
     class Config:
         from_attributes = True

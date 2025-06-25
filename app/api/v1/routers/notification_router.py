@@ -3,7 +3,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Query
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies import get_db
@@ -23,16 +23,36 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 async def websocket_notifications(
     websocket: WebSocket,
     user_id: UUID,
+    token: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
     """WebSocket endpoint for real-time notifications."""
     try:
+        # Authenticate WebSocket connection using token from query parameter
+        if token:
+            try:
+                from app.core.auth import get_current_user
+                from app.api.v1.dependencies import get_db
+                # Validate token and get user
+                current_user = await get_current_user(token, db)
+                
+                # Verify the user_id matches the token
+                if str(current_user.user_id) != str(user_id):
+                    await websocket.close(code=1008, reason="Unauthorized")
+                    return
+                    
+                user_role = current_user.roles[0].role_name if current_user.roles else "user"
+            except Exception as auth_error:
+                print(f"WebSocket authentication failed: {auth_error}")
+                await websocket.close(code=1008, reason="Authentication failed")
+                return
+        else:
+            # For now, allow unauthenticated connections but log it
+            print(f"WebSocket connection without token for user {user_id}")
+            user_role = "user"
+        
         # Initialize notification service
         notification_service = NotificationService(db)
-        
-        # Get user role (you might want to add authentication here)
-        # For now, we'll accept the connection without role verification
-        user_role = "user"  # You can implement role detection here
         
         # Handle the WebSocket connection
         await notification_service.handle_websocket_connection(

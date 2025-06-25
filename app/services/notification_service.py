@@ -135,8 +135,18 @@ class NotificationService:
             # Create notification in database
             notification = self.notification_repo.create(notification_data)
             
-            # Convert to response schema
-            response = NotificationResponse.model_validate(notification)
+            # Convert model to response schema with proper field mapping
+            response = NotificationResponse(
+                notification_id=notification.id,
+                user_id=notification.user_id,
+                title=notification.subject,
+                message=notification.body,
+                notification_type=notification.type.value,
+                priority=self._int_to_priority(notification.priority),
+                is_read=notification.is_read,
+                created_at=notification.created_at,
+                read_at=notification.read_at
+            )
             
             # Send real-time notification if enabled
             if send_realtime:
@@ -147,6 +157,11 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Error creating notification: {e}")
             raise
+
+    def _int_to_priority(self, priority_int: int) -> str:
+        """Convert priority integer to string."""
+        priority_map = {1: "low", 2: "medium", 3: "high"}
+        return priority_map.get(priority_int, "medium")
 
     async def _send_realtime_notification(self, notification: NotificationResponse):
         """Send real-time notification via WebSocket."""
@@ -165,7 +180,11 @@ class NotificationService:
         
         # Send to specific user if user_id is provided
         if notification.user_id:
-            await connection_manager.send_personal_message(message, notification.user_id)
+            try:
+                user_uuid = UUID(notification.user_id)
+                await connection_manager.send_personal_message(message, user_uuid)
+            except ValueError:
+                print(f"Invalid user_id format: {notification.user_id}")
         else:
             # Broadcast to all users
             await connection_manager.broadcast_to_all(message)
@@ -243,13 +262,35 @@ class NotificationService:
             unread_only=unread_only
         )
         
-        return [NotificationResponse.model_validate(n) for n in notifications]
+        return [
+            NotificationResponse(
+                notification_id=n.id,
+                user_id=n.user_id,
+                title=n.subject,
+                message=n.body,
+                notification_type=n.type.value,
+                priority=self._int_to_priority(n.priority),
+                is_read=n.is_read,
+                created_at=n.created_at,
+                read_at=n.read_at
+            ) for n in notifications
+        ]
 
     def mark_as_read(self, notification_id: UUID, user_id: UUID) -> Optional[NotificationResponse]:
         """Mark a notification as read."""
         notification = self.notification_repo.mark_as_read(notification_id, user_id)
         if notification:
-            return NotificationResponse.model_validate(notification)
+            return NotificationResponse(
+                notification_id=notification.id,
+                user_id=notification.user_id,
+                title=notification.subject,
+                message=notification.body,
+                notification_type=notification.type.value,
+                priority=self._int_to_priority(notification.priority),
+                is_read=notification.is_read,
+                created_at=notification.created_at,
+                read_at=notification.read_at
+            )
         return None
 
     def mark_all_as_read(self, user_id: UUID) -> int:

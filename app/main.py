@@ -39,8 +39,10 @@ app = FastAPI(title="Enterprise FastAPI Application")
 # Configure CORS using settings from .env file
 allowed_origins = []
 
-if hasattr(settings, 'allowed_hosts_list'):
-    for host in settings.allowed_hosts_list:
+# Fix: allowed_hosts_list is a property, not an attribute
+try:
+    hosts_list = settings.allowed_hosts_list
+    for host in hosts_list:
         # Ensure proper URL format
         if host.startswith(("http://", "https://")):
             # Remove trailing slash if present
@@ -49,9 +51,11 @@ if hasattr(settings, 'allowed_hosts_list'):
         else:
             # Skip invalid entries that don't start with protocol
             print(f"Skipping invalid origin (missing protocol): {host}")
+except Exception as e:
+    print(f"Error processing allowed_hosts from settings: {e}")
 
 # Fallback to localhost if no valid origins from settings
-print(allowed_origins)
+print(f"Loaded origins from settings: {allowed_origins}")
 if not allowed_origins:
     allowed_origins = [
         "http://localhost:3000",
