@@ -75,5 +75,6 @@ urllib3==2.4.0
 uvicorn==0.34.0
 weasyprint==65.1
 webencodings==0.5.1
+websockets==14.1
 wrapt==1.17.2
 zopfli==0.2.3.post1
