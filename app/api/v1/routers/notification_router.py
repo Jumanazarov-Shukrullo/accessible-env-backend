@@ -5,10 +5,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status, Query
 from sqlalchemy.orm import Session
+from jose import JWTError, jwt
 
 from app.api.v1.dependencies import get_db
 from app.core.auth import auth_manager
+from app.core.config import settings
 from app.models.user_model import User
+from app.domain.repositories.user_repository import UserRepository
 from app.schemas.notification_schema import (
     NotificationCreate,
     NotificationResponse,
@@ -17,6 +20,30 @@ from app.schemas.notification_schema import (
 from app.services.notification_service import NotificationService, connection_manager
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+async def get_websocket_user(token: str, db: Session) -> User:
+    """Authenticate WebSocket connection using token."""
+    if not token:
+        raise ValueError("No token provided")
+    
+    try:
+        payload: dict = jwt.decode(
+            token,
+            settings.auth.secret_key,
+            algorithms=[settings.auth.algorithm],
+        )
+        user_id: str | None = payload.get("sub")
+        if user_id is None:
+            raise ValueError("Invalid token payload")
+    except JWTError as e:
+        raise ValueError(f"Invalid token: {e}")
+
+    repo = UserRepository(db)
+    user: User | None = repo.get_by_id(user_id)
+    if user is None:
+        raise ValueError("User not found")
+    return user
 
 
 @router.websocket("/ws/{user_id}")
@@ -31,14 +58,11 @@ async def websocket_notifications(
         # Authenticate WebSocket connection using token from query parameter
         if token:
             try:
-                from app.core.auth import get_current_user
-                from app.api.v1.dependencies import get_db
-                # Validate token and get user
-                current_user = await get_current_user(token, db)
+                current_user = await get_websocket_user(token, db)
                 
                 # Verify the user_id matches the token
                 if str(current_user.user_id) != str(user_id):
-                    await websocket.close(code=1008, reason="Unauthorized")
+                    await websocket.close(code=1008, reason="Unauthorized: User ID mismatch")
                     return
                     
                 user_role = current_user.roles[0].role_name if current_user.roles else "user"
@@ -47,9 +71,10 @@ async def websocket_notifications(
                 await websocket.close(code=1008, reason="Authentication failed")
                 return
         else:
-            # For now, allow unauthenticated connections but log it
+            # Close connection if no token provided
             print(f"WebSocket connection without token for user {user_id}")
-            user_role = "user"
+            await websocket.close(code=1008, reason="Token required")
+            return
         
         # Initialize notification service
         notification_service = NotificationService(db)
@@ -63,6 +88,10 @@ async def websocket_notifications(
         pass
     except Exception as e:
         print(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011, reason="Internal server error")
+        except:
+            pass
 
 
 @router.get("/", response_model=List[NotificationResponse])
