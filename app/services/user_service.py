@@ -1,5 +1,6 @@
 """User application service - orchestrates use cases using domain services."""
 
+from datetime import timedelta
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, UploadFile, status
@@ -861,3 +862,52 @@ class UserService:
             user_responses.append(UserListResponse(**user_data))
 
         return user_responses, total
+
+    def generate_password_reset_token(self, user: User) -> str:
+        """Generate a password reset token for the user."""
+        # Create token with user email and expiry
+        token_data = {
+            "email": user.email,
+            "user_id": str(user.user_id),
+            "type": "password_reset"
+        }
+        # Token expires in 1 hour
+        expires_delta = timedelta(hours=1)
+        return security_manager.create_access_token(token_data, expires_delta)
+
+    def reset_password(self, token: str, new_password: str) -> None:
+        """Reset user password using reset token."""
+        try:
+            # Verify token
+            payload = security_manager.verify_token(token)
+            if not payload or payload.get("type") != "password_reset":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired reset token"
+                )
+            
+            user_email = payload.get("email")
+            if not user_email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid reset token"
+                )
+                
+            # Get user and update password
+            user = self.get_user_by_email(user_email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+                
+            # Update password
+            user.password_hash = security_manager.get_password_hash(new_password)
+            self.repo.update(user)
+            
+        except Exception as e:
+            logger.error(f"Password reset failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password reset failed. Token may be invalid or expired."
+            )
