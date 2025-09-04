@@ -182,9 +182,16 @@ class UserRouter:
     ) -> User:
         service = UserService(uow)
         user, verification_link = service.register_user(user_in)
-        background_tasks.add_task(
-            EmailSender.send_verification_email, user.email, verification_link
-        )
+        
+        # Try to send verification email, but don't fail registration if email fails
+        try:
+            background_tasks.add_task(
+                EmailSender.send_verification_email, user.email, verification_link
+            )
+        except Exception as e:
+            logger.warning(f"Failed to schedule verification email for {user.email}: {e}")
+            # Continue without failing - user can request resend later
+        
         return user
 
     async def list_users(
@@ -547,7 +554,6 @@ class UserRouter:
         body: dict,
         background_tasks: BackgroundTasks,
         uow: UnitOfWork = Depends(get_uow),
-        current_user: User = Depends(auth_manager.get_current_user),
     ) -> dict:
         user_service = UserService(uow)
         user = user_service.get_user_by_email(body["email"])
@@ -564,7 +570,6 @@ class UserRouter:
         self,
         body: dict,
         uow: UnitOfWork = Depends(get_uow),
-        current_user: User = Depends(auth_manager.get_current_user),
     ) -> dict:
         user_service = UserService(uow)
         user_service.reset_password(body["token"], body["new_password"])
