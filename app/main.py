@@ -77,8 +77,8 @@ app.add_middleware(
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret_key,
-    same_site="lax",  # ← back to lax
-    https_only=False,  # keep false for http://
+    same_site="none",  # Required for OAuth cross-site redirects
+    https_only=False,  # Set to False for local development, True for production
     session_cookie="sid",
     max_age=3600,
 )

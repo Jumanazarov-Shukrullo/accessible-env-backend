@@ -366,9 +366,17 @@ class UserRouter:
         """
         Redirect user to Google LoginPage
         """
+        # Debug session state at start
+        print(f"DEBUG LOGIN: Session before redirect: {dict(request.session)}")
+        print(f"DEBUG LOGIN: Request URL: {request.url}")
+        print(f"DEBUG LOGIN: Request cookies: {dict(request.cookies)}")
+        
         redirect_url = settings.auth.google_redirect_uri
         # redirect_uri must match the authorized redirect in google console
-        return await oauth.google.authorize_redirect(request, redirect_url)
+        response = await oauth.google.authorize_redirect(request, redirect_url)
+        
+        print(f"DEBUG LOGIN: Session after redirect: {dict(request.session)}")
+        return response
 
     async def google_callback(
         self, request: Request, uow: UnitOfWork = Depends(get_uow)
@@ -377,6 +385,12 @@ class UserRouter:
         Exchange the authorization code for tokens, get user info, upsert user in db
         then return local jwt
         """
+        # Debug session state
+        print(f"DEBUG: Session data: {dict(request.session)}")
+        print(f"DEBUG: Request URL: {request.url}")
+        print(f"DEBUG: Request headers: {dict(request.headers)}")
+        print(f"DEBUG: Request cookies: {dict(request.cookies)}")
+        
         try:
             token = await oauth.google.authorize_access_token(request)
         except Exception:

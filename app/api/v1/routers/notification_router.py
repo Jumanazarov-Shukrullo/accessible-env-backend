@@ -94,6 +94,27 @@ async def websocket_notifications(
             pass
 
 
+@router.websocket("/test-ws")
+async def test_websocket(websocket: WebSocket):
+    """Simple WebSocket test endpoint."""
+    try:
+        await websocket.accept()
+        await websocket.send_text("WebSocket connection successful!")
+        
+        while True:
+            try:
+                data = await websocket.receive_text()
+                await websocket.send_text(f"Echo: {data}")
+            except WebSocketDisconnect:
+                break
+    except Exception as e:
+        print(f"Test WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011, reason="Test error")
+        except:
+            pass
+
+
 @router.get("/", response_model=List[NotificationResponse])
 async def get_notifications(
     skip: int = 0,

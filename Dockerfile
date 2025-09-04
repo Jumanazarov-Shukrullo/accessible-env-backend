@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies for WeasyPrint and other libraries
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools
     gcc \
     g++ \
@@ -37,7 +37,6 @@ RUN apt-get update && apt-get install -y \
     libgdk-pixbuf2.0-dev \
     # FFI library
     libffi-dev \
-    libffi8 \
     # MIME types
     shared-mime-info \
     # Font libraries
@@ -56,6 +55,7 @@ RUN apt-get update && apt-get install -y \
     libharfbuzz0b \
     libfribidi0 \
     libthai0 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -71,11 +71,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the FastAPI app files to the working directory
 COPY . .
 
-# Clean up apt cache to reduce image size
-RUN apt-get remove --purge -y \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Note: Package cleanup already done in the installation step above
 
 # Expose the port that FastAPI will run on
 EXPOSE 8000
